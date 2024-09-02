@@ -19,17 +19,8 @@ local_model = "qwen2:1.5b"
 #local_model = "phi3:3.8b-mini-4k-instruct-q3_K_S"
 llm = ChatOllama(model=local_model)
 
-# response = llm.invoke("what is the meaning of life?")
-# print(response)
-
-
 #Parse the response
 parser = StrOutputParser()
-
-# chain = llm | parser
-# Answer = chain.invoke("what is the capital of france ")
-# print("Answer: ", Answer)
-
 
 #Load data from pdf
 loader = PyPDFLoader("./data/Artificial-Intelligence-The-Future.pdf")
@@ -77,5 +68,6 @@ chain = (
     | parser
 )
 # response=chain.invoke({'question': "What are the types of Artificial Intelligence"})
-response=chain.invoke({'question': "What are the three categories of intelligence level"})
+# response=chain.invoke({'question': "What are the three categories of intelligence level"})
+response=chain.invoke({'question': "What are the Advantages of AI"})
 print(response)
