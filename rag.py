@@ -8,7 +8,7 @@ from langchain_community.vectorstores import DocArrayInMemorySearch
 from operator import itemgetter
 # import os
 # from dotenv import load_dotenv
-
+### Load the API key from the .env file
 # load_dotenv()
 
 # OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
