@@ -8,17 +8,12 @@ from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_chroma import Chroma
 from operator import itemgetter
-# import os
-# from dotenv import load_dotenv
 
-# load_dotenv()
 
-# OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-#call the model with openAi
-# local_model=""
 #call the model with ChatOllama
 local_model = "qwen2:1.5b"
 #local_model = "phi3:3.8b-mini-4k-instruct-q3_K_S"
+
 llm = ChatOllama(model=local_model)
 
 #Parse the response
@@ -31,7 +26,7 @@ pages = loader.load_and_split()
 # print(page.metadata)
 
 # Split the document into chunks
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=7500, chunk_overlap=100)
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
 chunks = text_splitter.split_documents(pages)
 
  # Instantiate embedding model
@@ -43,7 +38,7 @@ embeddings = OllamaEmbeddings(model="nomic-embed-text", show_progress=True)
 # retriever.invoke("machine learning")
 
 # VectorstoreChroma
-persist_directory = './db_chroma'
+persist_directory = './db_chroma2'
 # vectorstore = Chroma.from_documents(
 #     documents=chunks,
 #     embedding=embeddings,
@@ -54,19 +49,19 @@ vectorstore = Chroma(persist_directory=persist_directory, embedding_function=emb
 print(vectorstore._collection.count())
 
 # Define the optimized RAG prompt template
-template = """You are an AI assistant. Use the provided context to answer the question as it is in the context.
+template = """You are a helpful assistant that answers questions based on the given context.
 
 Context: {context}
 
 Question: {question}
 
-Answer:"""
+Answer: """
 
 prompt = PromptTemplate.from_template(template)
 
 
 # Retrieve documents using similarity search
-question = "What are the Advantages of AI"
+question = "What Mark Zuckerberg said to people against AI  "
 docs = vectorstore.similarity_search(question, k=5)
 
 # Format the context from retrieved documents
@@ -74,17 +69,27 @@ context = "\n".join([doc.page_content for doc in docs])
 
 
 
+# #adding the context to the prompt using chain
+# chain = (
+#     {
+#         "context": itemgetter("context")  ,
+#         "question": itemgetter("question"),
+#     }
+#     | prompt
+#     | llm
+#     | parser
+# )
 
-#adding the context to the prompt using chain
-chain = (
-    {
-        "context": itemgetter("question") ,
-        "question": itemgetter("question"),
-    }
-    | prompt
-    | llm
-    | parser
-)
+# response = chain.invoke({'question': question})
 
-response = chain.invoke({'question': question})
+# Add the context to the prompt and invoke the chain
+chain_input = {
+    "context": context,
+    "question": question,
+}
+
+# Build the chain with the context and question
+chain = prompt | llm | parser
+
+response = chain.invoke(chain_input)
 print(response)
