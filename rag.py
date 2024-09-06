@@ -49,7 +49,9 @@ vectorstore = Chroma(persist_directory=persist_directory, embedding_function=emb
 print(vectorstore._collection.count())
 
 # Define the optimized RAG prompt template
-template = """You are a helpful assistant that answers questions based on the given context.
+template = """You are a helpful assistant that answers questions based only on the given context.
+If you don't know the answer, just say that you don't know, don't try to make up an answer. 
+Use six sentences maximum.
 
 Context: {context}
 
@@ -61,7 +63,7 @@ prompt = PromptTemplate.from_template(template)
 
 
 # Retrieve documents using similarity search
-question = "What Mark Zuckerberg said to people against AI  "
+question = "What is the  literacy rate of India in 2022"
 docs = vectorstore.similarity_search(question, k=5)
 
 # Format the context from retrieved documents
