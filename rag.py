@@ -63,7 +63,7 @@ prompt = PromptTemplate.from_template(template)
 
 
 # Retrieve documents using similarity search
-question = "What is the  literacy rate of India in 2022"
+question = input("Please type your question: ")
 docs = vectorstore.similarity_search(question, k=5)
 
 # Format the context from retrieved documents
@@ -93,5 +93,5 @@ chain_input = {
 # Build the chain with the context and question
 chain = prompt | llm | parser
 
-response = chain.invoke(chain_input)
-print(response)
+answer = chain.invoke(chain_input)
+print("Answer:", answer)
