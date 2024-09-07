@@ -51,7 +51,7 @@ print(vectorstore._collection.count())
 # Define the optimized RAG prompt template
 template = """You are a helpful assistant that answers questions based only on the given context.
 If you don't know the answer, just say that you don't know, don't try to make up an answer. 
-Use six sentences maximum.
+Use three sentences maximum.
 
 Context: {context}
 
