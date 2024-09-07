@@ -6,7 +6,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import OllamaEmbeddings
 # from langchain_community.vectorstores import DocArrayInMemorySearch
 from langchain_community.vectorstores import Chroma
-from langchain_chroma import Chroma
+
 from operator import itemgetter
 
 
@@ -20,14 +20,14 @@ llm = ChatOllama(model=local_model)
 parser = StrOutputParser()
 
 #Load data from pdf
-loader = PyPDFLoader("./data/Artificial-Intelligence-The-Future.pdf")
-pages = loader.load_and_split()
+#loader = PyPDFLoader("./data/Artificial-Intelligence-The-Future.pdf")
+#pages = loader.load_and_split()
 # page=pages[0]
 # print(page.metadata)
 
 # Split the document into chunks
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-chunks = text_splitter.split_documents(pages)
+#text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+#chunks = text_splitter.split_documents(pages)
 
  # Instantiate embedding model
 embeddings = OllamaEmbeddings(model="nomic-embed-text", show_progress=True)
@@ -62,12 +62,7 @@ Answer: """
 prompt = PromptTemplate.from_template(template)
 
 
-# Retrieve documents using similarity search
-question = input("Please type your question: ")
-docs = vectorstore.similarity_search(question, k=5)
 
-# Format the context from retrieved documents
-context = "\n".join([doc.page_content for doc in docs])
 
 # while True:
 #     # Retrieve documents using similarity search
@@ -95,13 +90,19 @@ context = "\n".join([doc.page_content for doc in docs])
 # response = chain.invoke({'question': question})
 
 # Add the context to the prompt and invoke the chain
-chain_input = {
-    "context": context,
-    "question": question,
-}
+
 
 # Build the chain with the context and question
-chain = prompt | llm | parser
 
-answer = chain.invoke(chain_input)
-print("Answer:", answer)
+def get_answer_and_docs(question:str):
+    
+    docs = vectorstore.similarity_search(question, k=5)
+    context = "\n".join([doc.page_content for doc in docs])
+    chain_input = {
+        "context": context,
+        "question": question,
+    }
+    chain = prompt | llm | parser
+    response = chain.invoke(chain_input)
+
+    return response
