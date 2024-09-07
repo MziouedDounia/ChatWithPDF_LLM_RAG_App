@@ -69,6 +69,16 @@ docs = vectorstore.similarity_search(question, k=5)
 # Format the context from retrieved documents
 context = "\n".join([doc.page_content for doc in docs])
 
+# while True:
+#     # Retrieve documents using similarity search
+#     question = input("Please type your question (or type 'exit' to quit): ")
+#     if question.lower() == 'exit':
+#         break
+
+#     docs = vectorstore.similarity_search(question, k=5)
+
+#     # Format the context from retrieved documents
+#     context = "\n".join([doc.page_content for doc in docs])
 
 
 # #adding the context to the prompt using chain
