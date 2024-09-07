@@ -11,8 +11,8 @@ from operator import itemgetter
 
 
 #call the model with ChatOllama
-local_model = "qwen2:1.5b"
-#local_model = "phi3:3.8b-mini-4k-instruct-q3_K_S"
+# local_model = "qwen2:1.5b"
+local_model = "phi3"
 
 llm = ChatOllama(model=local_model)
 
