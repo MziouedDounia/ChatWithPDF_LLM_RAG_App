@@ -8,6 +8,22 @@ from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.vectorstores import Chroma
 
 from operator import itemgetter
+from dotenv import load_dotenv
+import os
+
+# Charger les variables depuis le fichier .env
+load_dotenv()
+
+# Définir les variables d'environnement
+os.environ["LANGCHAIN_TRACING_V2"] = "true"  # Tu peux aussi ajouter cette variable dans ton fichier .env si tu veux
+os.environ["LANGCHAIN_ENDPOINT"] = "https://api.langchain.plus/"
+
+# Récupérer la clé API depuis .env
+os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGCHAIN_API_KEY")
+
+# Optionnel: Vérifier si la clé API est bien chargée
+if os.environ["LANGCHAIN_API_KEY"] is None:
+    raise ValueError("LANGCHAIN_API_KEY is not set. Please check your .env file.")
 
 
 #call the model with ChatOllama

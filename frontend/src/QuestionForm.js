@@ -14,7 +14,7 @@ function QuestionForm(){
         console.log("your question :",question);
         const response= await api.post('/chat',{message:question});
         setAnswer(response.data.answer);
-        console.log(answer);
+        console.log("answer is :",answer);
     }
     return (
         <div>
