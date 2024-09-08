@@ -11,7 +11,7 @@ from operator import itemgetter
 import os
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["LANGCHAIN_ENDPOINT"] = "https://api.langchain.plus/"
-os.environ["LANGCHAIN_API_KEY"] = "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"
+os.environ["LANGCHAIN_API_KEY"] = "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"
 
 
 #call the model with ChatOllama
