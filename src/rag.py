@@ -8,6 +8,10 @@ from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.vectorstores import Chroma
 
 from operator import itemgetter
+import os
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
+os.environ["LANGCHAIN_ENDPOINT"] = "https://api.langchain.plus/"
+os.environ["LANGCHAIN_API_KEY"] = "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"
 
 
 #call the model with ChatOllama
