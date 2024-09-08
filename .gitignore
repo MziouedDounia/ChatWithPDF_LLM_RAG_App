@@ -1,3 +1,3 @@
 .venv/
 db_chroma2/*/length.bin
-src/__pycache__/
+__pycache__/
