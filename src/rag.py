@@ -1,3 +1,8 @@
+
+import os
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
+os.environ["LANGCHAIN_ENDPOINT"] = "https://api.langchain.plus/"
+os.environ["LANGCHAIN_API_KEY"] = "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"
 from langchain_community.chat_models import ChatOllama
 from langchain_core.output_parsers import StrOutputParser
 from langchain_community.document_loaders import PyPDFLoader
@@ -11,8 +16,8 @@ from operator import itemgetter
 
 
 #call the model with ChatOllama
-# local_model = "qwen2:1.5b"
-local_model = "phi3"
+local_model = "qwen2:1.5b"
+#local_model = "phi3"
 
 llm = ChatOllama(model=local_model)
 
