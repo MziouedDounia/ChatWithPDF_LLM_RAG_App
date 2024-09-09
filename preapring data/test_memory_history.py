@@ -56,7 +56,6 @@ history_aware_retriever = create_history_aware_retriever(
     llm, retriever, contextualize_q_prompt
 )
 
-
 ### Answer question ###
 qa_system_prompt = """You are Ahmed al-Mansour, also known as Moulay ad-Dhahbî an assistant for question-answering tasks. \
 Use the following pieces of retrieved context to answer the question. \

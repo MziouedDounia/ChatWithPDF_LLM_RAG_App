@@ -6,7 +6,7 @@ import UserMessage from "./components/UserMessage";
 import Messages from "./components/Messages";
 import Input from "./components/Input";
 
-import { getChatbotResponse } from "./ChatbotAPI"; // Import the API function
+import { getChatbotResponse } from "./ChatBotAPI"; // Import the API function
 
 import "./index.css";
 import Header from "./components/Header";
@@ -38,7 +38,8 @@ function Chatbot() {
     // Display the UserMessage immediately
     setMessages(prevMessages => [
       ...prevMessages,
-      <UserMessage key={userMessageKey} text={question} />
+      <UserMessage key={userMessageKey} text={question} />,
+      <BotMessage key={botMessageKey} fetchMessage={async () => "..."}/>
     ]);
 
     try {
@@ -47,7 +48,7 @@ function Chatbot() {
       
       // Update state to include the BotMessage once it’s ready
       setMessages(prevMessages => [
-        ...prevMessages,
+        ...prevMessages.slice(0, prevMessages.length - 1),
         <BotMessage key={botMessageKey} fetchMessage={async () => botResponse} />
       ]);
     } catch (error) {
