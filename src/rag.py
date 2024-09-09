@@ -78,8 +78,6 @@ Answer: """
 prompt = PromptTemplate.from_template(template)
 
 
-
-
 # while True:
 #     # Retrieve documents using similarity search
 #     question = input("Please type your question (or type 'exit' to quit): ")

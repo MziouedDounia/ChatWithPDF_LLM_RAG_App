@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_chroma import Chroma
@@ -8,6 +9,19 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+import os
+
+# Charger les variables depuis le fichier .env
+load_dotenv()
+
+# Définir les variables d'environnement
+os.environ["LANGCHAIN_TRACING_V2"] = "true"  # Tu peux aussi ajouter cette variable dans ton fichier .env si tu veux
+os.environ["LANGCHAIN_ENDPOINT"] = "https://api.langchain.plus/"
+
+# Récupérer la clé API depuis .env
+os.environ["LANGCHAIN_API_KEY"] = "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"
+
 
 from langchain_community.chat_models import ChatOllama
 from langchain_core.output_parsers import StrOutputParser
@@ -44,7 +58,7 @@ history_aware_retriever = create_history_aware_retriever(
 
 
 ### Answer question ###
-qa_system_prompt = """YYou are Ahmed al-Mansour, also known as Moulay ad-Dhahbî an assistant for question-answering tasks. \
+qa_system_prompt = """You are Ahmed al-Mansour, also known as Moulay ad-Dhahbî an assistant for question-answering tasks. \
 Use the following pieces of retrieved context to answer the question. \
 If you don't know the answer, just say that you don't know. \
 Use three sentences maximum and keep the answer concise.\
