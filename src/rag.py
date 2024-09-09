@@ -7,6 +7,8 @@ from langchain_community.embeddings import OllamaEmbeddings
 # from langchain_community.vectorstores import DocArrayInMemorySearch
 from langchain_community.vectorstores import Chroma
 
+from langchain.memory import ConversationBufferMemory
+
 from operator import itemgetter
 from dotenv import load_dotenv
 import os
@@ -27,8 +29,8 @@ if os.environ["LANGCHAIN_API_KEY"] is None:
 
 
 #call the model with ChatOllama
-local_model = "qwen2:1.5b"
-#local_model = "phi3"
+# local_model = "qwen2:1.5b"
+local_model = "phi3"
 
 llm = ChatOllama(model=local_model)
 
@@ -54,7 +56,7 @@ embeddings = OllamaEmbeddings(model="nomic-embed-text", show_progress=True)
 # retriever.invoke("machine learning")
 
 # VectorstoreChroma
-persist_directory = './db_chroma2'
+persist_directory = './db_qsar_bdii'
 # vectorstore = Chroma.from_documents(
 #     documents=chunks,
 #     embedding=embeddings,
@@ -76,6 +78,18 @@ Question: {question}
 Answer: """
 
 prompt = PromptTemplate.from_template(template)
+
+from langchain.chains import ConversationalRetrievalChain
+from langchain.memory import ConversationBufferMemory
+memory = ConversationBufferMemory(
+    memory_key="chat_history",
+    return_messages=True
+)
+qa = ConversationalRetrievalChain.from_llm(
+    llm,
+    retriever=vectorstore.as_retriever(),
+    memory=memory
+)
 
 
 # while True:
