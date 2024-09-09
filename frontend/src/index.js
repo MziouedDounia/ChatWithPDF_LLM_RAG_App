@@ -6,7 +6,7 @@ import UserMessage from "./components/UserMessage";
 import Messages from "./components/Messages";
 import Input from "./components/Input";
 
-import { getChatbotResponse } from "./ChatBotAPI"; // Import the API function
+import { getChatbotResponse } from "./ChatbotAPI"; // Import the API function
 
 import "./index.css";
 import Header from "./components/Header";

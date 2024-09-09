@@ -9,6 +9,49 @@
   overflow: hidden;
 }
 
+/* Small screens (280px - 760px) */
+@media (max-width: 760px) {
+  .chatbot {
+    width: 100vw;
+    height: 100vh;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  .header {
+    font-weight: bold;
+    background-color: #002f50;
+    flex-shrink: 0;
+  }
+  .messages{
+    flex-grow: 1;
+  }
+  .input {
+    flex-shrink: 0;
+  }
+}
+
+/* Medium screens (760px - 1440px) */
+@media (min-width: 760px) and (max-width: 1440px) {
+  .chatbot {
+    width: 100vw;
+    height: 100vh;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  .header {
+    font-weight: bold;
+    background-color: #002f50;
+    flex-shrink: 0;
+  }
+  .messages{
+    flex-grow: 1;
+  }
+  .input {
+    flex-shrink: 0;
+  }
+}
 .header {
   padding: 20px;
   text-align: center;
