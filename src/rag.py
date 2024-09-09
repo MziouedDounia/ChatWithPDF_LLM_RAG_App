@@ -79,48 +79,24 @@ Answer: """
 
 prompt = PromptTemplate.from_template(template)
 
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferMemory
-memory = ConversationBufferMemory(
-    memory_key="chat_history",
-    return_messages=True
-)
-qa = ConversationalRetrievalChain.from_llm(
-    llm,
-    retriever=vectorstore.as_retriever(),
-    memory=memory
-)
+# from langchain.chains import create_history_aware_retriever
+# from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 
-# while True:
-#     # Retrieve documents using similarity search
-#     question = input("Please type your question (or type 'exit' to quit): ")
-#     if question.lower() == 'exit':
-#         break
-
-#     docs = vectorstore.similarity_search(question, k=5)
-
-#     # Format the context from retrieved documents
-#     context = "\n".join([doc.page_content for doc in docs])
-
-
-# #adding the context to the prompt using chain
-# chain = (
-#     {
-#         "context": itemgetter("context")  ,
-#         "question": itemgetter("question"),
-#     }
-#     | prompt
-#     | llm
-#     | parser
+# contextualize_q_system_prompt = """Given a chat history and the latest user question \
+# which might reference context in the chat history, formulate a standalone question \
+# which can be understood without the chat history. Do NOT answer the question, \
+# just reformulate it if needed and otherwise return it as is."""
+# contextualize_q_prompt = ChatPromptTemplate.from_messages(
+#     [
+#         ("system", contextualize_q_system_prompt),
+#         MessagesPlaceholder("chat_history"),
+#         ("human", "{input}"),
+#     ]
 # )
-
-# response = chain.invoke({'question': question})
-
-# Add the context to the prompt and invoke the chain
-
-
-# Build the chain with the context and question
+# history_aware_retriever = create_history_aware_retriever(
+#     llm, retriever, contextualize_q_prompt
+# )
 
 def get_answer_and_docs(question:str):
     

@@ -1,3 +1,4 @@
+from typing import Dict, List
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from src.rag import get_answer_and_docs
@@ -23,6 +24,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+chat_history: List[Dict[str, str]] = []
+
 class Message(BaseModel):
     message: str
 
@@ -32,5 +35,12 @@ def chat(message: Message):
     response_content = {
         "question": message.message,  # Send the original message
         "answer": response
-    }
+    }    
+    chat_history.append({"role": "user", "message": message.message})
+    chat_history.append({"role": "system", "message": response})
+
     return JSONResponse(content=response_content, status_code=200)
+
+@app.get("/history", response_model=List[dict])
+async def get_history():
+    return chat_history
