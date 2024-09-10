@@ -29,8 +29,8 @@ if os.environ["LANGCHAIN_API_KEY"] is None:
 
 
 #call the model with ChatOllama
-# local_model = "qwen2:1.5b"
-local_model = "phi3"
+local_model = "qwen2:1.5b"
+#local_model = "phi3"
 
 llm = ChatOllama(model=local_model)
 
