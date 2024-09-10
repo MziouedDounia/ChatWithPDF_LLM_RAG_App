@@ -1,7 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
-export default function Input({ onSend }) {
+export default function Input({ onSend, value }) {
   const [question, setQuestion] = useState('');
+
+  useEffect(() => {
+    setQuestion(value); // Update the input with the transcribed text
+  }, [value]);
 
   const handleInputChange = (e) => {
     setQuestion(e.target.value);
