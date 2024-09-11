@@ -13,10 +13,11 @@
   padding: 20px;
   text-align: center;
   color: rgb(255, 255, 255);
-  max-height: 58px;
+  max-height: 16px;
   font-size: 16px;
   font-weight: bold;
-  background-color: #002f50;
+  background-image: url('images/zellij4.png'); 
+  background-size: cover;
 }
 
 .messages {
@@ -89,4 +90,13 @@
   position: absolute;
   right: 0;
   top: 0;
+}
+
+.title{
+  color: #c04828;
+    background: #f0dcccd9;
+    width: 213px;
+    height: 42px;
+    margin-top: -11px;
+    margin-left: 596px;
 }
