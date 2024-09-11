@@ -104,14 +104,20 @@ conversational_rag_chain = RunnableWithMessageHistory(
 
 # LLM-based Query Classification
 # @lru_cache(maxsize=100)
+# LLM-based Query Classification
 def classify_query(question: str, chat_history) -> bool:
-    chat_history = tuple(chat_history)
-    formatted_chat_history = format_chat_history(chat_history)  # Format chat history correctly
+   
+    # Format the chat history as a readable string for the LLM
+    formatted_chat_history = format_chat_history(chat_history)
+
+    # Construct the classification prompt with clear instructions
     classification_prompt = (
-    f"Here is the conversation history:\n\n"
-    f"{formatted_chat_history}\n\n"
-    f"Question: {question}"
-)
+        f"Based on the following conversation history and the current question, "
+        f"determine if the question requires document retrieval or can be answered using the existing conversation context.\n\n"
+        f"Conversation History:\n{formatted_chat_history}\n"
+        f"Current Question: {question}\n\n"
+        f"Answer 'yes' if document retrieval is necessary to answer the question, or 'no' if the LLM can handle it directly using the conversation history."
+    )
 
     try:
         # Invoke the LLM to classify the query with the conversation history
@@ -125,13 +131,13 @@ def classify_query(question: str, chat_history) -> bool:
         # Extract and normalize the answer (case-insensitive)
         answer = response["answer"].strip().lower()
 
-        # Return True if the answer is "yes", otherwise False
+        # Return True if the answer is "yes" (retrieval needed), otherwise False
         return 'yes' in answer
 
     except Exception as e:
         logging.error(f"Error invoking LLM for classification: {e}")
         return False  # Fail-safe: Assume no retrieval is needed if an error occurs
-    
+
 # Helper function to format chat history as a string
 def format_chat_history(messages):
     formatted_history = ""
@@ -148,7 +154,7 @@ async def get_answer_and_docs(question: str, session_id: str):
         # Retrieve session-specific chat history
         chat_history = get_session_history(session_id)
 
-        # Classify if retrieval is necessary
+        # Classify if retrieval is necessary (no need to await classify_query)
         needs_retrieval = classify_query(question, chat_history.messages)
 
         if needs_retrieval:
@@ -158,48 +164,11 @@ async def get_answer_and_docs(question: str, session_id: str):
                 config={"configurable": {"session_id": session_id}}
             )
         else:
-            # Combine chat history and question into a formatted prompt
-            formatted_chat_history = format_chat_history(chat_history.messages)
-            chain_input = prompt_template.format(chat_history=formatted_chat_history, input=question)
+            # Pass chat history as list of messages, not a formatted string
+            chain_input = prompt_template.format(chat_history=chat_history.messages, input=question)
 
             # Invoke the LLM using the formatted prompt template
             response = await llm.invoke(chain_input)
-
-            # Check if the response is an AIMessage object
-            if isinstance(response, AIMessage):
-                # Update the chat history with the latest user question and LLM response
-                chat_history.add_user_message(question)
-                chat_history.add_ai_message(response.content.strip())
-                return response.content.strip()
-            else:
-                return f"Unexpected response type: {type(response)}"
-
-        return response["answer"]
-
-    except Exception as e:
-        return f"An error occurred while processing the question: {str(e)}"
-
-    try:
-        # Retrieve session-specific chat history
-        chat_history = get_session_history(session_id)
-
-        # Classify if retrieval is necessary
-        needs_retrieval = await classify_query(question, chat_history.messages)
-
-        if needs_retrieval:
-            # Use conversational RAG chain with retrieval
-            response = await conversational_rag_chain.invoke(
-                {"input": question, "chat_history": chat_history.messages},
-                config={"configurable": {"session_id": session_id}}
-            )
-        else:
-            # Combine chat history and question into a formatted prompt
-            formatted_chat_history = format_chat_history(chat_history.messages)
-            chain_input = prompt_template.format(chat_history=formatted_chat_history, input=question)
-
-            # Invoke the LLM using the formatted prompt template
-            response = await llm.invoke(chain_input)
-
 
             # Check if the response is an AIMessage object
             if isinstance(response, AIMessage):
