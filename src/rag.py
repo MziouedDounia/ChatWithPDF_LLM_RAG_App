@@ -103,9 +103,9 @@ conversational_rag_chain = RunnableWithMessageHistory(
 )
 
 # LLM-based Query Classification
-@lru_cache(maxsize=100)
+# @lru_cache(maxsize=100)
 def classify_query(question: str, chat_history) -> bool:
-    
+    chat_history = tuple(chat_history)
     formatted_chat_history = format_chat_history(chat_history)  # Format chat history correctly
     classification_prompt = (
     f"Here is the conversation history:\n\n"
