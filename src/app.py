@@ -1,4 +1,3 @@
-from typing import Dict, List, Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,8 +8,8 @@ import threading
 
 from src.rag import get_answer_and_docs
 
-# In-memory session store to hold chat history
-session_store: Dict[str, List[Dict[str, str]]] = {}
+# In-memory session store to hold session metadata (not chat history)
+session_store = {}
 
 # Session expiration time (e.g., 1 hour)
 session_expiration_time = 3600  # 1 hour
@@ -67,40 +66,39 @@ async def start_background_tasks():
 # Pydantic model for incoming messages
 class Message(BaseModel):
     message: str
-    session_id: Optional[str] = None  # Session ID is optional for new users
+    session_id: str  # Session ID is now required
 
-# Function to get or create user-specific chat history
-def get_session_history(session_id: str) -> List[Dict[str, str]]:
+# Function to get or create session metadata (not chat history)
+def get_session_metadata(session_id: str):
     if session_id not in session_store:
-        session_store[session_id] = []  # Initialize session history if it doesn't exist
+        # Initialize session metadata with last_active timestamp
+        session_store[session_id] = {
+            "last_active": time.time()
+        }
     return session_store[session_id]
 
 # API Endpoint to start a new session
 @app.post("/start_session")
 def start_session():
     session_id = str(uuid.uuid4())  # Generate a new session ID
-    session_store[session_id] = {"last_active": time.time()}  # Initialize session with last active time
+    session_store[session_id] = {"last_active": time.time()}  # Initialize session metadata
     return {"session_id": session_id}
 
 # API Endpoint to handle chat messages
 @app.post("/chat")
-def chat(message: Message):
+async def chat(message: Message):
     # If no session_id is provided, raise an error
     if not message.session_id:
         raise HTTPException(status_code=400, detail="Session ID is required.")
 
-    # Get user-specific chat history
-    chat_history = get_session_history(message.session_id)
-
     # Update last active timestamp for session
-    session_store[message.session_id]['last_active'] = time.time()
+    session_metadata = get_session_metadata(message.session_id)
+    session_metadata['last_active'] = time.time()
 
-    # Call your function to process the message and generate a response
-    response_text = get_answer_and_docs(message.message, message.session_id)
+    # Call your function in rag.py to process the message and generate a response
+    response_text = await get_answer_and_docs(message.message, message.session_id)
 
-    # Add the question and answer to the session's chat history
-    chat_history.append({"question": message.message, "answer": response_text})
-
+    # Return the chat response
     response_content = {
         "question": message.message,
         "answer": response_text,
@@ -109,11 +107,9 @@ def chat(message: Message):
 
     return JSONResponse(content=response_content, status_code=200)
 
-# API Endpoint to retrieve session history
-@app.get("/history/{session_id}", response_model=List[Dict[str, str]])
-async def get_history(session_id: str):
-    # Retrieve history for a specific session
-    chat_history = get_session_history(session_id)
-    if not chat_history:
-        raise HTTPException(status_code=404, detail="No history found for this session.")
-    return chat_history
+# API Endpoint to retrieve session metadata (this doesn't return chat history)
+@app.get("/session_metadata/{session_id}")
+async def get_session_info(session_id: str):
+    if session_id not in session_store:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    return session_store[session_id]

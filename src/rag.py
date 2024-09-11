@@ -9,7 +9,8 @@ from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
-from functools import lru_cache
+from async_lru import alru_cache
+from langchain_core.messages import HumanMessage, AIMessage
 import logging
 import os
 
@@ -58,9 +59,9 @@ chat_prompt = ChatPromptTemplate.from_messages([
 question_answering_chain = llm | parser
 rag_chain = retriever | question_answering_chain
 
-# LLM-based Query Classification
-@lru_cache(maxsize=100)
-def classify_query(question: str) -> bool:
+# LLM-based Query Classification with async lru cache
+@alru_cache(maxsize=100)  # Async LRU cache
+async def classify_query(question: str) -> bool:
     classification_prompt = (
         f"Determine if the following question is related to Ahmed el-Mansour Edahbi, QSAR BDII, or Morocco. "
         f"Respond with a simple 'yes' if it is, or 'no' if it is not.\n\n"
@@ -68,19 +69,26 @@ def classify_query(question: str) -> bool:
     )
 
     try:
-        # Invoke the LLM to classify the query
-        response = llm.invoke({"question": classification_prompt})
+        # Invoke the LLM asynchronously
+        response = await llm.invoke(classification_prompt)
 
-        # Validate that the response is well-formed and contains an answer
-        if not response or "answer" not in response:
-            logging.error(f"Invalid response from LLM: {response}")
-            return False  # Return False as a fallback
+        # Check if the response is an AIMessage object and extract the content
+        if isinstance(response, AIMessage):
+            answer = response.content.strip().lower()
+        else:
+            logging.error(f"Unexpected response type: {type(response)}")
+            return False
 
-        # Extract and normalize the answer (case-insensitive)
-        answer = response["answer"].strip().lower()
+        print("LLM response:", answer)
 
-        # Return True if the answer is "yes", otherwise False
-        return 'yes' in answer
+        # Simplified logic to look for 'yes' or 'no' in the response text
+        if "yes" in answer:
+            return True
+        elif "no" in answer:
+            return False
+        else:
+            logging.error(f"Unable to classify the response: {answer}")
+            return False
 
     except Exception as e:
         # Log any errors during LLM invocation
@@ -110,19 +118,29 @@ async def get_answer_and_docs(question: str, session_id: str):
         needs_retrieval = await classify_query(question)
 
         if needs_retrieval:
-            
             # Use conversational RAG chain with retrieval
             response = await conversational_rag_chain.invoke(
                 {"input": question},
                 config={"configurable": {"session_id": session_id}}
             )
         else:
+            chat_history = get_session_history(session_id)
             # Rely on LLM's knowledge base directly if no retrieval is needed
-            response = await conversational_rag_chain.invoke(
-                {"input": question},
-                config={"configurable": {"session_id": session_id}}
-            )
+            response = await llm.invoke({
+                "input": question,
+                "chat_history": chat_history.messages  # Pass the conversation history here
+            })
+            
+            # Check if the response is an AIMessage object and update history
+            if isinstance(response, AIMessage):
+                # Update the chat history with the latest user question and LLM response
+                chat_history.add_user_message(question)
+                chat_history.add_ai_message(response.content.strip())
+                return response.content.strip()
+            else:
+                return f"Unexpected response type: {type(response)}"
 
+        # Assuming the response is a dictionary and contains the answer
         return response["answer"]
 
     except Exception as e:
