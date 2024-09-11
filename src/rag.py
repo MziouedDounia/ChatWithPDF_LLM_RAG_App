@@ -1,16 +1,18 @@
 from langchain_community.chat_models import ChatOllama
 from langchain_core.output_parsers import StrOutputParser
 from langchain_chroma import Chroma
-from langchain.prompts import PromptTemplate
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.memory import ConversationBufferMemory
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
 from dotenv import load_dotenv
-from langchain_core.prompts import ChatPromptTemplate
-from async_lru import alru_cache
-from langchain_core.messages import HumanMessage, AIMessage
+from functools import lru_cache
+from langchain_core.messages import  AIMessage , HumanMessage
+
 import logging
 import os
 
@@ -41,59 +43,48 @@ retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k
 # Check vectorstore collection count
 print(vectorstore._collection.count())
 
-# Define system prompt for RAG task
-system_prompt = (
-    "You are Ahmed el-Mansour Edahbi ,answer the visitors who are passionate about your history. "
-    "Use the following pieces of retrieved context to answer the question. "
-    "If you don't know the answer, say that you don't know. "
-    "Use three sentences maximum and keep the answer concise."
-    "\n\n{context}"
-)
-
-# create RAG chain
-chat_prompt = ChatPromptTemplate.from_messages([
-    ("system", system_prompt),
-    ("human", "{input}"),
+prompt_template = ChatPromptTemplate.from_messages([
+    ("system", "You are a helpful assistant."),
+    MessagesPlaceholder("chat_history"),
+    ("human", "{input}")
 ])
 
-question_answering_chain = llm | parser
-rag_chain = retriever | question_answering_chain
+# Define system prompt for retrieval task
+qa_system_prompt = """You are Ahmed el-Mansour Edahbi, answering the visitors who are passionate about your history. 
+Use the following pieces of retrieved context to answer the question. 
+If you don't know the answer, just say that you don't know. 
+Use three sentences maximum and keep the answer concise.
 
-# LLM-based Query Classification with async lru cache
-@alru_cache(maxsize=100)  # Async LRU cache
-async def classify_query(question: str) -> bool:
-    classification_prompt = (
-        f"Determine if the following question is related to Ahmed el-Mansour Edahbi, QSAR BDII, or Morocco. "
-        f"Respond with a simple 'yes' if it is, or 'no' if it is not.\n\n"
-        f"Question: {question}"
-    )
+{context}"""
+qa_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", qa_system_prompt),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}"),
+    ]
+)
 
-    try:
-        # Invoke the LLM asynchronously
-        response = await llm.invoke(classification_prompt)
+question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
 
-        # Check if the response is an AIMessage object and extract the content
-        if isinstance(response, AIMessage):
-            answer = response.content.strip().lower()
-        else:
-            logging.error(f"Unexpected response type: {type(response)}")
-            return False
+# Contextualize the question with chat history
+contextualize_q_system_prompt = """Given a chat history and the latest user question 
+which might reference context in the chat history, formulate a standalone question 
+which can be understood without the chat history. Do NOT answer the question, 
+just reformulate it if needed and otherwise return it as is."""
 
-        print("LLM response:", answer)
+contextualize_q_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", contextualize_q_system_prompt),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}"),
+    ]
+)
 
-        # Simplified logic to look for 'yes' or 'no' in the response text
-        if "yes" in answer:
-            return True
-        elif "no" in answer:
-            return False
-        else:
-            logging.error(f"Unable to classify the response: {answer}")
-            return False
+# Create history-aware retriever
+history_aware_retriever = create_history_aware_retriever(llm, retriever, contextualize_q_prompt)
 
-    except Exception as e:
-        # Log any errors during LLM invocation
-        logging.error(f"Error invoking LLM for classification: {e}")
-        return False  # Fail-safe: Assume no retrieval is needed if an error occurs
+# Create retrieval chain
+rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
 # Function to manage session-based chat history
 store = {}
@@ -111,27 +102,70 @@ conversational_rag_chain = RunnableWithMessageHistory(
     output_messages_key="answer",
 )
 
+# LLM-based Query Classification
+@lru_cache(maxsize=100)
+def classify_query(question: str, chat_history) -> bool:
+    
+    formatted_chat_history = format_chat_history(chat_history)  # Format chat history correctly
+    classification_prompt = (
+    f"Here is the conversation history:\n\n"
+    f"{formatted_chat_history}\n\n"
+    f"Question: {question}"
+)
+
+    try:
+        # Invoke the LLM to classify the query with the conversation history
+        response = llm.invoke(classification_prompt)
+
+        # Validate that the response is well-formed and contains an answer
+        if not response or "answer" not in response:
+            logging.error(f"Invalid response from LLM: {response}")
+            return False  # Return False as a fallback
+
+        # Extract and normalize the answer (case-insensitive)
+        answer = response["answer"].strip().lower()
+
+        # Return True if the answer is "yes", otherwise False
+        return 'yes' in answer
+
+    except Exception as e:
+        logging.error(f"Error invoking LLM for classification: {e}")
+        return False  # Fail-safe: Assume no retrieval is needed if an error occurs
+    
+# Helper function to format chat history as a string
+def format_chat_history(messages):
+    formatted_history = ""
+    for message in messages:
+        if isinstance(message, HumanMessage):
+            formatted_history += f"Human: {message.content}\n"
+        elif isinstance(message, AIMessage):
+            formatted_history += f"AI: {message.content}\n"
+    return formatted_history
+
 # The main function for processing a question
 async def get_answer_and_docs(question: str, session_id: str):
     try:
+        # Retrieve session-specific chat history
+        chat_history = get_session_history(session_id)
+
         # Classify if retrieval is necessary
-        needs_retrieval = await classify_query(question)
+        needs_retrieval = classify_query(question, chat_history.messages)
 
         if needs_retrieval:
             # Use conversational RAG chain with retrieval
             response = await conversational_rag_chain.invoke(
-                {"input": question},
+                {"input": question, "chat_history": chat_history.messages},
                 config={"configurable": {"session_id": session_id}}
             )
         else:
-            chat_history = get_session_history(session_id)
-            # Rely on LLM's knowledge base directly if no retrieval is needed
-            response = await llm.invoke({
-                "input": question,
-                "chat_history": chat_history.messages  # Pass the conversation history here
-            })
-            
-            # Check if the response is an AIMessage object and update history
+            # Combine chat history and question into a formatted prompt
+            formatted_chat_history = format_chat_history(chat_history.messages)
+            chain_input = prompt_template.format(chat_history=formatted_chat_history, input=question)
+
+            # Invoke the LLM using the formatted prompt template
+            response = await llm.invoke(chain_input)
+
+            # Check if the response is an AIMessage object
             if isinstance(response, AIMessage):
                 # Update the chat history with the latest user question and LLM response
                 chat_history.add_user_message(question)
@@ -140,7 +174,42 @@ async def get_answer_and_docs(question: str, session_id: str):
             else:
                 return f"Unexpected response type: {type(response)}"
 
-        # Assuming the response is a dictionary and contains the answer
+        return response["answer"]
+
+    except Exception as e:
+        return f"An error occurred while processing the question: {str(e)}"
+
+    try:
+        # Retrieve session-specific chat history
+        chat_history = get_session_history(session_id)
+
+        # Classify if retrieval is necessary
+        needs_retrieval = await classify_query(question, chat_history.messages)
+
+        if needs_retrieval:
+            # Use conversational RAG chain with retrieval
+            response = await conversational_rag_chain.invoke(
+                {"input": question, "chat_history": chat_history.messages},
+                config={"configurable": {"session_id": session_id}}
+            )
+        else:
+            # Combine chat history and question into a formatted prompt
+            formatted_chat_history = format_chat_history(chat_history.messages)
+            chain_input = prompt_template.format(chat_history=formatted_chat_history, input=question)
+
+            # Invoke the LLM using the formatted prompt template
+            response = await llm.invoke(chain_input)
+
+
+            # Check if the response is an AIMessage object
+            if isinstance(response, AIMessage):
+                # Update the chat history with the latest user question and LLM response
+                chat_history.add_user_message(question)
+                chat_history.add_ai_message(response.content.strip())
+                return response.content.strip()
+            else:
+                return f"Unexpected response type: {type(response)}"
+
         return response["answer"]
 
     except Exception as e:
