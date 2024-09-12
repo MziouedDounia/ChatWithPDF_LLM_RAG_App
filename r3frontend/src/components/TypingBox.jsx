@@ -58,5 +58,4 @@ export const TypingBox = () => {
       </div>
     )}
   </div>
-  );
-};
+  );};
