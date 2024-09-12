@@ -7,6 +7,7 @@ export const TypingBox = () => {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState(""); // State to store chatbot response
+  const [recording, setRecording] = useState(false);
 
   // Function to handle chatbot response fetching
   const ask = async () => {
@@ -23,12 +24,34 @@ export const TypingBox = () => {
     }
   };
 
+  const startRecording = async () => {
+    setRecording(true);
+    const recorderElement = document.getElementById("recorder");
+    const recording = await recordAudio();
+
+    recorderElement.disabled = true;
+    recording.start();
+
+    // Wait for the user to stop recording
+    while (recording) {
+      await sleep(1);
+    }
+
+    const audio = await recording.stop();
+    await sleep(2000);
+    audio.play();
+    recorderElement.disabled = false;
+    setRecording(false);
+  };
+
   return (
-    <div className="z-10 max-w-[600px] flex space-y-6 flex-col bg-gradient-to-tr from-slate-300/30 via-gray-400/30 to-slate-600-400/30 p-4 backdrop-blur-md rounded-xl border-slate-100/30 border">
+    <div className="z-10 max-w-[600px] flex flex-col space-y-6 bg-gradient-to-tr from-slate-300/30 via-gray-400/30 to-slate-600/30 p-4 backdrop-blur-md rounded-xl border border-slate-100/30">
       <div>
-        <h2 className="text-white font-bold text-xl">How to say in Japanese?</h2>
+        <h2 className="text-white font-bold text-xl">
+          Want to know the beautiful history of El Badi Palace?
+        </h2>
         <p className="text-white/65">
-          Type a sentence you want to say in Japanese and AI Sensei will translate it for you.
+          RedCityGuide chatbot is here to help you with any questions. Feel free to ask.
         </p>
       </div>
 
@@ -40,10 +63,11 @@ export const TypingBox = () => {
           </span>
         </div>
       ) : (
-        <div className="gap-3 flex">
+        <div className="flex items-center gap-3">
+          {/* Input Field */}
           <input
-            className="focus:outline focus:outline-white/80 flex-grow bg-slate-800/60 p-2 px-4 rounded-full text-white placeholder:text-white/50 shadow-inner shadow-slate-900/60"
-            placeholder="Have you ever been to Japan?"
+            className="flex-grow bg-slate-800/60 p-2 px-4 rounded-full text-white placeholder:text-white/50 shadow-inner shadow-slate-900/60 focus:outline focus:outline-white/80"
+            placeholder="Type your questions here or use the audio button..."
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             onKeyDown={(e) => {
@@ -52,8 +76,39 @@ export const TypingBox = () => {
               }
             }}
           />
-          <button className="bg-slate-100/20 p-2 px-6 rounded-full text-white" onClick={ask}>
+
+          {/* Ask Button */}
+          <button
+            className="bg-slate-100/20 p-2 px-6 rounded-full text-white"
+            onClick={ask}
+          >
             Ask
+          </button>
+
+          {/* Recorder Button */}
+          <button
+            id="recorder"
+            className={`relative w-12 h-12 rounded-full flex items-center justify-center cursor-pointer bg-[#38383d] border border-[#f9f9fa33] shadow-md transition-all ${
+              recording ? "recording" : ""
+            }`}
+            onClick={startRecording}
+          >
+            <img
+              id="record"
+              src="https://assets.codepen.io/3537853/record.svg"
+              draggable="false"
+              className={`w-3/5 h-3/5 absolute ${
+                recording ? "animate-recording" : ""
+              }`}
+              alt="Record"
+            />
+            <img
+              id="arrow"
+              src="https://assets.codepen.io/3537853/arrow.svg"
+              draggable="false"
+              className="w-1/2 h-1/2 absolute opacity-0"
+              alt="Arrow"
+            />
           </button>
         </div>
       )}
@@ -65,3 +120,31 @@ export const TypingBox = () => {
     </div>
   );
 };
+
+// Helper Functions
+const recordAudio = () =>
+  new Promise(async (resolve) => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mediaRecorder = new MediaRecorder(stream);
+    const audioChunks = [];
+    mediaRecorder.addEventListener("dataavailable", (event) => {
+      audioChunks.push(event.data);
+    });
+
+    const start = () => mediaRecorder.start();
+
+    const stop = () =>
+      new Promise((resolve) => {
+        mediaRecorder.addEventListener("stop", () => {
+          const audioBlob = new Blob(audioChunks);
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
+          const play = () => audio.play();
+          resolve({ audioBlob, audioUrl, play });
+        });
+        mediaRecorder.stop();
+      });
+    resolve({ start, stop });
+  });
+
+const sleep = (time) => new Promise((resolve) => setTimeout(resolve, time));

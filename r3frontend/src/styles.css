@@ -44,3 +44,15 @@ body {
 ::-webkit-scrollbar-thumb {
   background-color: white;
 }
+@keyframes recording {
+  0%, 100% {
+    transform: rotate(10deg);
+  }
+  50% {
+    transform: rotate(-10deg);
+  }
+}
+
+.animate-recording {
+  animation: recording 0.7s ease infinite;
+}

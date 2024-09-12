@@ -574,12 +574,36 @@ video {
   display: inline-flex;
 }
 
+.h-1\/2 {
+  height: 50%;
+}
+
+.h-12 {
+  height: 3rem;
+}
+
+.h-3\/5 {
+  height: 60%;
+}
+
 .h-4 {
   height: 1rem;
 }
 
 .h-full {
   height: 100%;
+}
+
+.w-1\/2 {
+  width: 50%;
+}
+
+.w-12 {
+  width: 3rem;
+}
+
+.w-3\/5 {
+  width: 60%;
 }
 
 .w-4 {
@@ -607,6 +631,10 @@ video {
 
 .animate-ping {
   animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.cursor-pointer {
+  cursor: pointer;
 }
 
 .flex-col {
@@ -643,8 +671,17 @@ video {
   border-width: 1px;
 }
 
+.border-\[\#f9f9fa33\] {
+  border-color: #f9f9fa33;
+}
+
 .border-slate-100\/30 {
   border-color: rgb(241 245 249 / 0.3);
+}
+
+.bg-\[\#38383d\] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(56 56 61 / var(--tw-bg-opacity));
 }
 
 .bg-slate-100\/20 {
@@ -673,6 +710,10 @@ video {
 .via-gray-400\/30 {
   --tw-gradient-to: rgb(156 163 175 / 0)  var(--tw-gradient-to-position);
   --tw-gradient-stops: var(--tw-gradient-from), rgb(156 163 175 / 0.3) var(--tw-gradient-via-position), var(--tw-gradient-to);
+}
+
+.to-slate-600\/30 {
+  --tw-gradient-to: rgb(71 85 105 / 0.3) var(--tw-gradient-to-position);
 }
 
 .p-2 {
@@ -711,6 +752,10 @@ video {
   color: rgb(255 255 255 / 0.65);
 }
 
+.opacity-0 {
+  opacity: 0;
+}
+
 .opacity-75 {
   opacity: 0.75;
 }
@@ -718,6 +763,12 @@ video {
 .shadow-inner {
   --tw-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
   --tw-shadow-colored: inset 0 2px 4px 0 var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+
+.shadow-md {
+  --tw-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --tw-shadow-colored: 0 4px 6px -1px var(--tw-shadow-color), 0 2px 4px -2px var(--tw-shadow-color);
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
@@ -730,6 +781,12 @@ video {
   --tw-backdrop-blur: blur(12px);
   -webkit-backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
   backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
+}
+
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
 }
 
 :root {
@@ -781,6 +838,20 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background-color: white;
+}
+
+@keyframes recording {
+  0%, 100% {
+    transform: rotate(10deg);
+  }
+
+  50% {
+    transform: rotate(-10deg);
+  }
+}
+
+.animate-recording {
+  animation: recording 0.7s ease infinite;
 }
 
 .placeholder\:text-white\/50::-moz-placeholder {
