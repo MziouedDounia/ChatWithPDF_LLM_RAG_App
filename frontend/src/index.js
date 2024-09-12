@@ -72,3 +72,11 @@ function Chatbot() {
 
 const rootElement = document.getElementById("root");
 ReactDOM.render(<Chatbot />, rootElement);
+
+// par chatgpt
+// const rootElement = document.getElementById('root');
+// if (rootElement) {
+//   const root = ReactDOM.createRoot(rootElement);
+//   root.render(<Chatbot />);
+// }
+
