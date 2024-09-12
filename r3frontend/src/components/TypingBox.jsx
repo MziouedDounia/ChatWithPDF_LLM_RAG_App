@@ -15,17 +15,17 @@ export const TypingBox = () => {
   const ask = () => {
     getChatbotResponse(question);
     setQuestion("");
+    setLoading(false)
   };
 
   return (
     <div className="z-10 max-w-[600px] flex space-y-6 flex-col bg-gradient-to-tr  from-slate-300/30 via-gray-400/30 to-slate-600-400/30 p-4  backdrop-blur-md rounded-xl border-slate-100/30 border">
     <div>
       <h2 className="text-white font-bold text-xl">
-        How to say in Japanese?
+       Want to know the beautiful history of El Badi Palace
       </h2>
       <p className="text-white/65">
-        Type a sentence you want to say in Japanese and AI Sensei will
-        translate it for you.
+        Type anything you want to know our Ai gonna answer you as best as it can.
       </p>
     </div>
 
@@ -40,7 +40,7 @@ export const TypingBox = () => {
       <div className="gap-3 flex">
         <input
           className="focus:outline focus:outline-white/80 flex-grow bg-slate-800/60 p-2 px-4 rounded-full text-white placeholder:text-white/50 shadow-inner shadow-slate-900/60"
-          placeholder="Have you ever been to Japan?"
+          placeholder="How can I asist you?"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           onKeyDown={(e) => {
