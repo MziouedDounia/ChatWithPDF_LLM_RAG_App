@@ -746,6 +746,24 @@ video {
   }
 }
 
+.typing-box-container {
+  position: fixed;
+  bottom: 1rem;
+  left: 1rem;
+  right: 1rem;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: stretch;
+  gap: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .typing-box-container {
+    justify-content: center;
+  }
+}
+
 body {
   color: rgb(var(--foreground-rgb));
   background: linear-gradient(
