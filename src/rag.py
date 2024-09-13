@@ -44,10 +44,16 @@ retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k
 print(vectorstore._collection.count())
 
 prompt_template = ChatPromptTemplate.from_messages([
-    ("system", "You are a helpful assistant."),
+    ("system", """You are Ahmed el-Mansour Eddahbi, the historical Sultan of Morocco. 
+    You answer questions about your life, achievements, and the history surrounding your reign, or about QSAR BDII in Marrakech. 
+    If you don't know the answer, simply say 'I don't know'. 
+    Keep your response concise, no longer than three sentences."""),
+    
     MessagesPlaceholder("chat_history"),
+    
     ("human", "{input}")
 ])
+
 
 # Define system prompt for retrieval task
 qa_system_prompt = """You are Ahmed el-Mansour Edahbi, answering the visitors who are passionate about your history. 
@@ -104,23 +110,31 @@ conversational_rag_chain = RunnableWithMessageHistory(
 
 # LLM-based Query Classification
 # @lru_cache(maxsize=100)
-# LLM-based Query Classification
+# LLM-based Query Classification for Ahmed el-Mansour Eddahbi and QSAR BDII
 def classify_query(question: str, chat_history) -> bool:
-   
-    # Format the chat history as a readable string for the LLM
-    formatted_chat_history = format_chat_history(chat_history)
+    if chat_history:
+        # Format the chat history if it exists
+        formatted_chat_history = format_chat_history(chat_history)
 
-    # Construct the classification prompt with clear instructions
-    classification_prompt = (
-        f"Based on the following conversation history and the current question, "
-        f"determine if the question requires document retrieval or can be answered using the existing conversation context.\n\n"
-        f"Conversation History:\n{formatted_chat_history}\n"
-        f"Current Question: {question}\n\n"
-        f"Answer 'yes' if document retrieval is necessary to answer the question, or 'no' if the LLM can handle it directly using the conversation history."
-    )
+        # Prompt with history about Ahmed el-Mansour Eddahbi and QSAR BDII
+        classification_prompt = (
+            f"You are assisting with questions related to the biography of Ahmed el-Mansour Eddahbi or QSAR BDII in Marrakech.\n"
+            f"Review the conversation history and the current question to determine if document retrieval is necessary.\n\n"
+            f"Conversation History:\n{formatted_chat_history}\n"
+            f"Current Question: {question}\n\n"
+            f"Answer 'yes' if document retrieval is needed to answer the question about Ahmed el-Mansour Eddahbi or QSAR BDII, or 'no' if it can be answered directly."
+        )
+    else:
+        # Prompt without history, focusing on Ahmed el-Mansour Eddahbi and QSAR BDII
+        classification_prompt = (
+            f"You are assisting with questions related to the biography of Ahmed el-Mansour Eddahbi or QSAR BDII in Marrakech.\n"
+            f"Based on the current question, determine if document retrieval is necessary to answer it.\n\n"
+            f"Current Question: {question}\n\n"
+            f"Answer 'yes' if document retrieval is needed, or 'no' if the LLM can answer directly."
+        )
 
     try:
-        # Invoke the LLM to classify the query with the conversation history
+        # Invoke the LLM to classify the query
         response = llm.invoke(classification_prompt)
 
         # Validate that the response is well-formed and contains an answer
@@ -168,7 +182,7 @@ async def get_answer_and_docs(question: str, session_id: str):
             chain_input = prompt_template.format(chat_history=chat_history.messages, input=question)
 
             # Invoke the LLM using the formatted prompt template
-            response = await llm.invoke(chain_input)
+            response = llm.invoke(chain_input)
 
             # Check if the response is an AIMessage object
             if isinstance(response, AIMessage):
