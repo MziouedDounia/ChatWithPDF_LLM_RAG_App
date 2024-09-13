@@ -112,45 +112,34 @@ conversational_rag_chain = RunnableWithMessageHistory(
 # @lru_cache(maxsize=100)
 # LLM-based Query Classification for Ahmed el-Mansour Eddahbi and QSAR BDII
 def classify_query(question: str, chat_history) -> bool:
-    if chat_history:
-        # Format the chat history if it exists
-        formatted_chat_history = format_chat_history(chat_history)
+        
+    # Format the chat history for context
+    formatted_chat_history = format_chat_history(chat_history) if chat_history else "No previous conversation history."
 
-        # Prompt with history about Ahmed el-Mansour Eddahbi and QSAR BDII
-        classification_prompt = (
-            f"You are assisting with questions related to the biography of Ahmed el-Mansour Eddahbi or QSAR BDII in Marrakech.\n"
-            f"Review the conversation history and the current question to determine if document retrieval is necessary.\n\n"
-            f"Conversation History:\n{formatted_chat_history}\n"
-            f"Current Question: {question}\n\n"
-            f"Answer 'yes' if document retrieval is needed to answer the question about Ahmed el-Mansour Eddahbi or QSAR BDII, or 'no' if it can be answered directly."
-        )
-    else:
-        # Prompt without history, focusing on Ahmed el-Mansour Eddahbi and QSAR BDII
-        classification_prompt = (
-            f"You are assisting with questions related to the biography of Ahmed el-Mansour Eddahbi or QSAR BDII in Marrakech.\n"
-            f"Based on the current question, determine if document retrieval is necessary to answer it.\n\n"
-            f"Current Question: {question}\n\n"
-            f"Answer 'yes' if document retrieval is needed, or 'no' if the LLM can answer directly."
-        )
+    # Create the classification prompt
+    classification_prompt = (
+        f"You are an assistant specializing in the biography of Ahmed el-Mansour Eddahbi and QSAR BDII in Marrakech.\n"
+        f"Please review the following conversation history and the current question to assess if document retrieval is required.\n\n"
+        f"Conversation History:\n{formatted_chat_history}\n"
+        f"Current Question: {question}\n\n"
+        f"Based on the information provided, answer 'yes' if document retrieval is necessary to accurately answer the question, or 'no' if the LLM can directly answer it."
+    )
 
     try:
         # Invoke the LLM to classify the query
         response = llm.invoke(classification_prompt)
-
-        # Validate that the response is well-formed and contains an answer
-        if not response or "answer" not in response:
-            logging.error(f"Invalid response from LLM: {response}")
-            return False  # Return False as a fallback
-
-        # Extract and normalize the answer (case-insensitive)
-        answer = response["answer"].strip().lower()
-
-        # Return True if the answer is "yes" (retrieval needed), otherwise False
-        return 'yes' in answer
-
+        
+        # Validate and process the response
+        if response and "answer" in response:
+            answer = response["answer"].strip().lower()
+            return answer == 'yes'
+        else:
+            logging.error(f"Invalid or missing response from LLM: {response}")
+            return False  # Default to no retrieval needed if response is invalid
+        
     except Exception as e:
         logging.error(f"Error invoking LLM for classification: {e}")
-        return False  # Fail-safe: Assume no retrieval is needed if an error occurs
+        return False  # Default to no retrieval needed if an exception occurs
 
 # Helper function to format chat history as a string
 def format_chat_history(messages):
