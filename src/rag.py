@@ -1,4 +1,5 @@
 import asyncio
+from typing import List
 from langchain_community.chat_models import ChatOllama
 from langchain_core.output_parsers import StrOutputParser
 from langchain_chroma import Chroma
@@ -11,8 +12,16 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from dotenv import load_dotenv
-from functools import lru_cache
 from langchain_core.messages import  AIMessage , HumanMessage
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
+from langdetect import detect
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 import logging
 import os
@@ -111,57 +120,6 @@ conversational_rag_chain = RunnableWithMessageHistory(
     output_messages_key="answer",
 )
 
-# LLM-based Query Classification
-# @lru_cache(maxsize=100)
-# LLM-based Query Classification for Ahmed el-Mansour Eddahbi and QSAR BDII
-def classify_query(question: str, chat_history) -> bool:    
-    # Format the chat history for context
-    formatted_chat_history = format_chat_history(chat_history) if chat_history else "No previous conversation history."
-
-    # Create the classification prompt
-    classification_prompt = (
-        f"You are an assistant specializing in the biography of Ahmed el-Mansour Eddahbi and QSAR BDII in Marrakech.\n"
-        f"Please review the following conversation history and the current question to assess if document retrieval is required.\n\n"
-        f"Conversation History:\n{formatted_chat_history}\n"
-        f"Current Question: {question}\n\n"
-        f"Based on the information provided, answer 'yes' if document retrieval is necessary to accurately answer the question, or 'no' if the LLM can directly answer it."
-    )
-
-    try:
-        # Invoke the LLM to classify the query
-        response = llm.invoke(classification_prompt)
-        
-        # Validate and process the response
-        if response and "answer" in response:
-            answer = response["answer"].strip().lower()
-            return answer == 'yes'
-        else:
-            logging.error(f"Invalid or missing response from LLM: {response}")
-            return False  # Default to no retrieval needed if response is invalid
-        
-    except Exception as e:
-        logging.error(f"Error invoking LLM for classification: {e}")
-        return False  # Default to no retrieval needed if an exception occurs
-
-# Helper function to format chat history as a string
-def format_chat_history(messages):
-    formatted_history = ""
-    for message in messages:
-        if isinstance(message, HumanMessage):
-            formatted_history += f"Human: {message.content}\n"
-        elif isinstance(message, AIMessage):
-            formatted_history += f"AI: {message.content}\n"
-    return formatted_history
-
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-import torch
-from langdetect import detect
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-import torch
-import logging
-
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 model_name = "facebook/nllb-200-distilled-600M"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -216,7 +174,7 @@ def translate_text(text: str, source_lang: str, target_lang: str) -> str:
     return translated_text
 
 
-async def translate_with_timeout(text: str, source_lang: str, target_lang: str, timeout: float = 10.0) -> str:
+async def translate_with_timeout(text: str, source_lang: str, target_lang: str, timeout: float = 15.0) -> str:
     try:
         loop = asyncio.get_event_loop()
         result = await asyncio.wait_for(
@@ -234,6 +192,55 @@ def detect_language(text: str) -> str:
         return detected_lang if detected_lang in LANGUAGES else "en"
     except:
         return "en"
+
+# LLM-based Query Classification for Ahmed el-Mansour Eddahbi and QSAR BDII
+def classify_query(question: str, chat_history) -> bool:    
+
+    # Format the chat history for context
+    formatted_chat_history = format_chat_history(chat_history) if chat_history else "No previous conversation history."
+
+    # Create the classification prompt
+    classification_prompt = (
+    f"You are an assistant specializing in the biography of Ahmed el-Mansour Eddahbi and QSAR BDII in Marrakech.\n"
+    f"Please review the following conversation history and current question to determine if document retrieval (RAG) is necessary to answer the question accurately.\n\n"
+    f"Conversation History:\n{formatted_chat_history}\n"
+    f"Current Question: {question}\n\n"
+    f"Based on the information provided, answer 'yes' if document retrieval is required to answer the question, or 'no' if the LLM can directly answer it. Consider whether the question is factual, requires specific knowledge about Ahmed el-Mansour Eddahbi or QSAR BDII, or involves complex reasoning.\n"
+    )
+
+    try:
+        # Invoke the LLM to classify the query
+        response = llm.invoke(classification_prompt)
+        
+        # Validate and process the response
+        if isinstance(response, dict) and "answer" in response:
+            answer = response["answer"].strip().lower()
+            logging.info(f"Classification response: {answer}")
+            if answer.startswith("yes"):
+                return True
+            elif answer.startswith("no"):
+                return False
+            else:
+                logging.warning(f"Unexpected classification response: {answer}. Defaulting to retrieval.")
+                return True
+        else:
+            logging.error(f"Invalid or missing response from LLM: {response}")
+            return True  # Default to retrieval if response is invalid
+        
+    except Exception as e:
+        logging.error(f"Error invoking LLM for classification: {e}")
+        return True 
+
+# Helper function to format chat history as a string
+def format_chat_history(messages: List[HumanMessage | AIMessage]) -> str:
+    formatted_history = ""
+    for message in messages:
+        if isinstance(message, HumanMessage):
+            formatted_history += f"Human: {message.content}\n"
+        elif isinstance(message, AIMessage):
+            formatted_history += f"AI: {message.content}\n"
+    return formatted_history.strip()
+
 
 async def get_answer_and_docs(question: str, session_id: str) -> str:
     try:
@@ -259,41 +266,46 @@ async def get_answer_and_docs(question: str, session_id: str) -> str:
         )
         except asyncio.TimeoutError:
             logger.warning("Query classification timed out. Defaulting to no retrieval.")
-            needs_retrieval = False
+            needs_retrieval = True
 
         try:
             if needs_retrieval:
+                logging.info("Performing RAG retrieval")
                 response = await asyncio.wait_for(
                     conversational_rag_chain.ainvoke(
-                        {"input": question_en, "chat_history": chat_history.messages},
+                        {"input": question_en}, # "chat_history": chat_history.messages},
                         config={"configurable": {"session_id": session_id}}
                     ),
-                    timeout=10.0
+                    timeout=20.0
                 )
                 answer = response.get('answer', "I'm sorry, I couldn't find an answer.")
+                logging.info(f"RAG answer: {answer}")
             else:
+                logging.info("Using direct LLM response")
                 chain_input = prompt_template.format(chat_history=chat_history.messages, input=question_en)
                 response = await asyncio.wait_for(llm.ainvoke(chain_input), timeout=10.0)
                 answer = response.content if isinstance(response, AIMessage) else str(response)
+                logging.info(f"LLM answer: {answer}")
 
-            chat_history.add_user_message(question)
+            chat_history.add_user_message(question_en)#stocker eng question instead of the original question
             chat_history.add_ai_message(answer)
 
             if source_language != "en":
+                logging.info(f"Translating answer from English to {source_language}")
                 answer_content = await translate_with_timeout(answer.strip(), source_lang="en", target_lang=source_language)
                 if answer_content.startswith("Translation timed out"):
                     return "I have an answer, but the translation back to your language timed out. Would you like the answer in English instead?"
             else:
                 answer_content = answer.strip()
 
-            print(f"Final answer: {answer_content}")  # Debug print
+            logging.info(f"Final answer: {answer_content}")
             return answer_content
 
         except asyncio.TimeoutError:
             return "I'm sorry, but the operation took too long to complete. Please try again or rephrase your question."
 
     except Exception as e:
-        logger.error(f"Error in get_answer_and_docs: {str(e)}", exc_info=True)
+        logging.error(f"Error in get_answer_and_docs: {str(e)}", exc_info=True)
         return f"An error occurred while processing the question: {str(e)}"
     
 #end
