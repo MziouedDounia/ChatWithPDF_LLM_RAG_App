@@ -17,10 +17,12 @@ export default function BotMessage({ fetchMessage }) {
   useEffect(() => {
     function updateVoices() {
       const voices = window.speechSynthesis.getVoices();
+      console.log(voices,voices);
       const targetVoice = voices.find(voice => voice.name === 'Microsoft David - English (United States)');
       setSelectedVoice(targetVoice || null);
     }
     
+    // Voices might not be available immediately, so listen for the event
     window.speechSynthesis.onvoiceschanged = updateVoices;
     updateVoices();
     
@@ -33,37 +35,7 @@ export default function BotMessage({ fetchMessage }) {
     if (!isLoading && message && selectedVoice) {
       if ("speechSynthesis" in window) {
         const utterance = new SpeechSynthesisUtterance(message);
-        utterance.voice = selectedVoice;
-
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const destination = audioContext.createMediaStreamDestination();
-        const mediaRecorder = new MediaRecorder(destination.stream);
-        const audioChunks = [];
-
-        mediaRecorder.ondataavailable = event => {
-          audioChunks.push(event.data);
-        };
-
-        mediaRecorder.onstop = async () => {
-          const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-          const formData = new FormData();
-          formData.append('file', audioBlob, 'response.wav');  // Ensure the key matches the server-side parameter
-
-          await fetch('http://localhost:8000/save_audio', {  // Ensure the URL matches your server's address and port
-            method: 'POST',
-            body: formData
-          });
-        };
-
-        const source = audioContext.createMediaStreamSource(destination.stream);
-        source.connect(audioContext.destination);
-        utterance.onstart = () => {
-          mediaRecorder.start();
-        };
-        utterance.onend = () => {
-          mediaRecorder.stop();
-        };
-
+        utterance.voice = selectedVoice; // Set the selected voice
         window.speechSynthesis.speak(utterance);
       } else {
         console.error("Speech synthesis not supported in this browser.");

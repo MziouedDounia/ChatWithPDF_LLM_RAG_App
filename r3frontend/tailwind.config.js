@@ -7,6 +7,7 @@ module.exports = {
   ],
   theme: {
     extend: {
+      
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
         "gradient-conic":
@@ -17,6 +18,7 @@ module.exports = {
       sans: ["var(--font-roboto)"],
       jp: ["var(--font-noto-sans-jp)"],
     },
+    
   },
   plugins: [],
 };

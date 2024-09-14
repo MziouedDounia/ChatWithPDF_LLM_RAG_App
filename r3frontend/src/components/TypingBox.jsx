@@ -2,12 +2,15 @@ import { getChatbotResponse } from "../hooks/ChatBotAPI";
 import { useState } from "react";
 import "../styles.css";
 import BotMessage from "./BotMessage"; // Import BotMessage component
+import Modal from "./Modal"; // Import Modal component
 
 export const TypingBox = () => {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState(""); // State to store chatbot response
   const [recording, setRecording] = useState(false);
+  const [history, setHistory] = useState([]); // State to store history of questions and answers
+  const [isModalOpen, setIsModalOpen] = useState(false); // State to control modal visibility
 
   // Function to handle chatbot response fetching
   const ask = async () => {
@@ -15,6 +18,7 @@ export const TypingBox = () => {
     try {
       const answer = await getChatbotResponse(question); // Fetch response from API
       setResponse(answer); // Set the response to state
+      setHistory([...history, { question, response: answer }]); // Add to history
     } catch (error) {
       console.error("Error fetching chatbot response:", error);
       setResponse("I'm sorry, I couldn't understand that.");
@@ -113,10 +117,21 @@ export const TypingBox = () => {
         </div>
       )}
 
+      {/* History Button */}
+      <button
+        className="bg-slate-100/20 p-2 w-full rounded-full text-white"
+        onClick={() => setIsModalOpen(true)}
+      >
+        View History
+      </button>
+
       {/* Pass the response to BotMessage for audio playback */}
       {response && !loading && (
         <BotMessage fetchMessage={() => Promise.resolve(response)} />
       )}
+
+      {/* Modal for History */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} messages={history} />
     </div>
   );
 };
