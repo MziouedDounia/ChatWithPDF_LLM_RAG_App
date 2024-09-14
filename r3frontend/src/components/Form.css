@@ -1,0 +1,71 @@
+
+.form-container{
+    height: 284px;
+    width: 410px;
+    position: absolute;
+    margin-left: 535px;
+    margin-top: 158px;
+}
+
+form{
+    margin-top:10px;
+    margin-left:5px;
+}
+
+button{
+ 
+  background-color: #EA4C89;
+  border-radius: 8px;
+  border-style: none;
+  box-sizing: border-box;
+  color: #FFFFFF;
+  cursor: pointer;
+  display: inline-block;
+  font-family: "Haas Grot Text R Web", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  height: 40px;
+  line-height: 20px;
+  list-style: none;
+  margin: 0;
+  outline: none;
+  padding: 10px 16px;
+  position: relative;
+  text-align: center;
+  text-decoration: none;
+  transition: color 100ms;
+  vertical-align: baseline;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+button:hover,
+button:focus {
+  background-color: #F082AC;
+}
+
+.field{
+    display: grid;
+}
+
+#root{
+    background-color: #ffff;
+}
+
+#name,#email{
+    border: 2px solid #000;
+    border-radius: 5px;
+    height: 41px;
+}
+
+.css-13cymwt-control, .css-b62m3t-container,#name,#email{
+width:375px;
+}
+.css-1dimb5e-singleValue div{
+    display:flex;
+}
+.form{
+    margin-top:10px;
+
+}
