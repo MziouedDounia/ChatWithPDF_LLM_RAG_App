@@ -111,8 +111,7 @@ conversational_rag_chain = RunnableWithMessageHistory(
 # LLM-based Query Classification
 # @lru_cache(maxsize=100)
 # LLM-based Query Classification for Ahmed el-Mansour Eddahbi and QSAR BDII
-def classify_query(question: str, chat_history) -> bool:
-        
+def classify_query(question: str, chat_history) -> bool:    
     # Format the chat history for context
     formatted_chat_history = format_chat_history(chat_history) if chat_history else "No previous conversation history."
 
@@ -150,25 +149,81 @@ def format_chat_history(messages):
         elif isinstance(message, AIMessage):
             formatted_history += f"AI: {message.content}\n"
     return formatted_history
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
+from langdetect import detect
 
-# The main function for processing a question
-async def get_answer_and_docs(question: str, session_id: str):
+# Load NLLB model and tokenizer
+model_name = "facebook/nllb-200-distilled-600M"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+
+# List of supported language codes (add more if needed)
+LANGUAGES = {
+    "en": "eng_Latn",  # English
+    "fr": "fra_Latn",  # French
+    "es": "spa_Latn",  # Spanish
+    "ar": "arb_Arab",  # Arabic
+    # Add other languages as needed
+}
+
+# Function to translate text using the NLLB model
+def translate_text(text: str, source_lang: str, target_lang: str) -> str:
+    # Check if the source language is supported
+    if source_lang not in LANGUAGES or target_lang not in LANGUAGES:
+        raise ValueError(f"Unsupported language: {source_lang} or {target_lang}")
+
+    # Tokenize the input text
+    inputs = tokenizer(text, return_tensors="pt")
+
+    # Retrieve the language ID if `get_lang_id` method is available
+    # Replace with correct method if different
+    forced_bos_token_id = tokenizer.get_lang_id(LANGUAGES[target_lang]) if hasattr(tokenizer, 'get_lang_id') else None
+
+    # Generate translation using the NLLB model
+    with torch.no_grad():
+        translated_tokens = model.generate(
+            **inputs, 
+            forced_bos_token_id=forced_bos_token_id
+        )
+
+    # Decode the translated tokens
+    translated_text = tokenizer.decode(translated_tokens[0], skip_special_tokens=True)
+    return translated_text
+
+# Function to detect the language of a given text using langdetect
+def detect_language(text: str) -> str:
+    detected_lang = detect(text)
+    if detected_lang not in LANGUAGES:
+        return "en"  # Default to English if language is not supported
+    return detected_lang
+
+async def get_answer_and_docs(question: str, session_id: str) -> str:
     try:
+        # Detect source language
+        source_language = detect_language(question)
+
+        # Translate the question to English if it's not in English
+        if source_language != "en":
+            question_en = translate_text(question, source_lang=source_language, target_lang="en")
+        else:
+            question_en = question
+
         # Retrieve session-specific chat history
         chat_history = get_session_history(session_id)
 
-        # Classify if retrieval is necessary (no need to await classify_query)
-        needs_retrieval = classify_query(question, chat_history.messages)
+        # Classify if retrieval is necessary
+        needs_retrieval = classify_query(question_en, chat_history.messages)
 
         if needs_retrieval:
             # Use conversational RAG chain with retrieval
             response = await conversational_rag_chain.invoke(
-                {"input": question, "chat_history": chat_history.messages},
+                {"input": question_en, "chat_history": chat_history.messages},
                 config={"configurable": {"session_id": session_id}}
             )
         else:
             # Pass chat history as list of messages, not a formatted string
-            chain_input = prompt_template.format(chat_history=chat_history.messages, input=question)
+            chain_input = prompt_template.format(chat_history=chat_history.messages, input=question_en)
 
             # Invoke the LLM using the formatted prompt template
             response = llm.invoke(chain_input)
@@ -178,11 +233,27 @@ async def get_answer_and_docs(question: str, session_id: str):
                 # Update the chat history with the latest user question and LLM response
                 chat_history.add_user_message(question)
                 chat_history.add_ai_message(response.content.strip())
-                return response.content.strip()
+
+                # Translate the response back to the original language if needed
+                if source_language != "en":
+                    response_content = translate_text(response.content.strip(), source_lang="en", target_lang=source_language)
+                else:
+                    response_content = response.content.strip()
+
+                return response_content
             else:
                 return f"Unexpected response type: {type(response)}"
 
-        return response["answer"]
+        # If retrieval was necessary
+        if 'answer' in response:
+            answer = response['answer']
+            # Translate the answer back to the original language if needed
+            if source_language != "en":
+                answer_content = translate_text(answer.strip(), source_lang="en", target_lang=source_language)
+            else:
+                answer_content = answer.strip()
+                
+            return answer_content
 
     except Exception as e:
         return f"An error occurred while processing the question: {str(e)}"
