@@ -62,7 +62,7 @@ app.post('/api/credentials', (req, res) => {
       from: 'merykarimi09@gmail.com',  // Replace with your email
       to: email,                     // Send email to the user who submitted the form
       subject: 'Form Submission Confirmation',
-      text: `Dear ${name},\n\nThank you for submitting your information and visiting Kasr El Badi.\n\nWe would really appreciate it if you could take a moment to rate your visit and provide feedback.\n\nPlease click on the link below to rate your experience:\n\n[Provide Your Rating](https://your-feedback-form-link.com)\n\nThank you for your time!\n\nBest regards,\nYour Team`,
+      text: `Dear ${name},\n\nThank you for submitting your information and visiting Kasr El Badi.\n\nWe would really appreciate it if you could take a moment to rate your visit and provide feedback.\n\nPlease click on the link below to rate your experience:\n\n[Provide Your Rating](https://docs.google.com/forms/d/e/1FAIpQLSeNNHo_-PPcGWuyjHIVzce-Qnwaffn-4XLjaVt3NjIW6p8vag/viewform?usp=sf_link)\n\nThank you for your time!\n\nBest regards,\nYour Team`,
     };
 
     transporter.sendMail(mailOptions, (error, info) => {
