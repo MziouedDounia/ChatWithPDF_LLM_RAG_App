@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.10",
     "gasp": "^0.0.2",
     "gsap": "^3.12.5"
   },
