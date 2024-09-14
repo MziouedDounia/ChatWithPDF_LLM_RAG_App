@@ -18,7 +18,10 @@ module.exports = {
       sans: ["var(--font-roboto)"],
       jp: ["var(--font-noto-sans-jp)"],
     },
-    
+    colors: {
+      'custom-background': '#fdf1f5',
+      'custom-input': '#e13b01',
+    },
   },
   plugins: [],
 };

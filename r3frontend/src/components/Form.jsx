@@ -226,7 +226,7 @@ export const Form = ({ onSubmit, onContinueAsGuest }) => {
   };
 
   return (
-    <div className="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
+    <div className="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8 bg-custom-background">
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">
         <h2 className="text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">Welcome to RedCityGuide !</h2>
       </div>
@@ -242,7 +242,7 @@ export const Form = ({ onSubmit, onContinueAsGuest }) => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-custom-input placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-custom-input sm:text-sm sm:leading-6"
               />
             </div>
           </div>
@@ -255,7 +255,7 @@ export const Form = ({ onSubmit, onContinueAsGuest }) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-custom-input placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
               />
             </div>
           </div>
@@ -275,7 +275,7 @@ export const Form = ({ onSubmit, onContinueAsGuest }) => {
                 value={nationality}
                 onChange={(selectedOption) => setNationality(selectedOption)}
                 required
-                className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-custom-input placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-custom-input sm:text-sm sm:leading-6"
               />
             </div>
           </div>
@@ -307,7 +307,7 @@ export const Form = ({ onSubmit, onContinueAsGuest }) => {
             </div>
           </div>
           <div className="flex flex-col gap-4">
-            <button type="submit" className="w-full rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Submit</button>
+            <button type="submit" className="w-full rounded-md bg-custom-input px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-custom-background focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Submit</button>
             <button type="button" onClick={onContinueAsGuest} className="w-full rounded-md bg-gray-200 px-3 py-1.5 text-sm font-semibold leading-6 text-gray-900 shadow-sm hover:bg-gray-300">Continue as guest</button>
           </div>
         </form>
