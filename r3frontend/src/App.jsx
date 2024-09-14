@@ -1,9 +1,10 @@
+// App.jsx
 import React, { useState } from "react";
-import { Canvas } from "@react-three/fiber";
-import { Experience } from "./components/Experience";
-import { TypingBox } from "./components/TypingBox";
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import Home from "./pages/Home";
+import Formulaire from "./pages/Formulaire";
+import LoadingSVG from "./components/LoadingSVG";
 import "./styles.css";
-import { Form } from "./components/Form";
 
 function App() {
   const [isFormSubmitted, setIsFormSubmitted] = useState(false);
@@ -18,21 +19,24 @@ function App() {
   };
 
   return (
-    <>
-      {isFormSubmitted ? (
-        <>
-          <div className="typing-box-container">
-            <TypingBox />
-          </div>
-          <Canvas shadows camera={{ position: [0, 0, 8], fov: 42 }}>
-            <color attach="background" args={["#ececec"]} />
-            <Experience />
-          </Canvas>
-        </>
-      ) : (
-        <Form onSubmit={handleFormSubmit} onContinueAsGuest={handleContinueAsGuest} />
-      )}
-    </>
+    <Router>
+      <Routes>
+      <Route path="/" element={<LoadingSVG />} />
+        <Route
+          path="/home"
+          element={
+            isFormSubmitted ? (
+              <Home />
+            ) : (
+              <Formulaire
+                onSubmit={handleFormSubmit}
+                onContinueAsGuest={handleContinueAsGuest}
+              />
+            )
+          }
+        />
+      </Routes>
+    </Router>
   );
 }
 
