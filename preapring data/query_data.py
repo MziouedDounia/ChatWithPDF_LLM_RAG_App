@@ -51,7 +51,7 @@ def query_rag(query_text: str):
 
     # Search the DB.
     # results = db.similarity_search_with_score(query_text, k=5)
-    results =db.similarity_search(query_text, k=5)
+    results =db.similarity_search_with_score(query_text, k=5)
 
     context_text = "\n\n---\n\n".join([doc.page_content for doc, _score in results])
     prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
