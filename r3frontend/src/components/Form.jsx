@@ -3,19 +3,7 @@ import Select from "react-select";
 import Flag from "react-world-flags";
 import axios from 'axios';
 
-const CustomOption = ({ innerProps, label, data }) => (
-  <div {...innerProps} className="flex items-center p-2 cursor-pointer hover:bg-gray-100">
-    <Flag code={data.code} className="w-5 h-3 mr-3" />
-    <span>{label}</span>
-  </div>
-);
 
-const CustomSingleValue = ({ children, data }) => (
-  <div className="flex items-center">
-    <Flag code={data.code} className="w-5 h-3 mr-3" />
-    <span>{children}</span>
-  </div>
-);
 
 export const Form = ({ onSubmit, onContinueAsGuest }) => {
   const [formData, setFormData] = useState({
@@ -45,6 +33,8 @@ export const Form = ({ onSubmit, onContinueAsGuest }) => {
     setFormData(prev => ({ ...prev, nationality: selectedOption }));
     setErrors(prev => ({ ...prev, nationality: '' }));
   }, []);
+
+
 
   const handleRadioChange = useCallback((value) => {
     setFormData(prev => ({ ...prev, visitedKasrElBadi: value }));
@@ -130,58 +120,59 @@ export const Form = ({ onSubmit, onContinueAsGuest }) => {
               </div>
             </div>
             <div>
-  <label htmlFor="nationality" className="block text-sm font-medium text-gray-700 mb-1">
-    Nationality
-  </label>
-  <Select
-    options={countries}
-    value={formData.nationality}
-    onChange={handleNationalityChange}
-    components={{
-      Option: CustomOption,
-      SingleValue: CustomSingleValue,
-    }}
-    styles={{
-      control: (base, state) => ({
-        ...base,
-        borderColor: errors.nationality ? '#f56565' : state.isFocused ? '#f97316' : '#d1d5db',
-        boxShadow: state.isFocused ? '0 0 0 1px #f97316' : 'none',
-        '&:hover': {
-          borderColor: state.isFocused ? '#f97316' : '#9ca3af',
-        },
-        minHeight: '38px', // Réduire la hauteur minimale
-        padding: '0 8px', // Ajuster le padding
-      }),
-      valueContainer: (base) => ({
-        ...base,
-        padding: '0 6px', // Réduire le padding interne
-      }),
-      singleValue: (base) => ({
-        ...base,
-        margin: '0', // Supprimer la marge
-        color: '#000',
-      }),
-      input: (base) => ({
-        ...base,
-        margin: '0', // Supprimer la marge
-        padding: '0', // Supprimer le padding
-      }),
-      placeholder: (base) => ({
-        ...base,
-        color: '#9ca3af',
-        margin: '0', // Supprimer la marge
-      }),
-      indicatorsContainer: (base) => ({
-        ...base,
-        height: '38px', // Ajuster la hauteur des indicateurs
-      }),
-    }}
-    placeholder="Select nationality..."
-    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
-  />
-  {errors.nationality && <p className="mt-2 text-sm text-red-600">{errors.nationality}</p>}
-</div>
-<div>
+              <label htmlFor="nationality" className="block text-sm font-medium leading-6 text-gray-900">Nationality</label>
+              <div className="mt-2">
+                <Select
+                  options={countries.map((country) => ({
+                    value: country.label,
+                    label: (
+                      <div className="flex items-center">
+                        <Flag code={country.code} style={{ width: 30, marginRight: 10 }} />
+                        {country.label}
+                      </div>
+                    ),
+                  }))}
+                  value={formData.nationality}
+                  onChange={handleNationalityChange}
+                  required
+                  className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-orange-600 sm:text-sm sm:leading-6"
+                  styles={{
+                    control: (provided) => ({
+                      ...provided,
+                      minHeight: '38px',
+                      height: '38px',
+                    }),
+                    valueContainer: (provided) => ({
+                      ...provided,
+                      height: '38px',
+                      padding: '0 6px',
+                    }),
+                    input: (provided) => ({
+                      ...provided,
+                      margin: '0px',
+                    }),
+                    indicatorSeparator: () => ({
+                      display: 'none',
+                    }),
+                    indicatorsContainer: (provided) => ({
+                      ...provided,
+                      height: '38px',
+                    }),
+                  }}
+                  theme={(theme) => ({
+                    ...theme,
+                    borderRadius: 6,
+                    colors: {
+                      ...theme.colors,
+                      primary25: '#f3f4f6',
+                      primary: '#f97316',
+                    },
+                  })}
+                />
+                {errors.nationality && <p className="mt-2 text-sm text-red-600">{errors.nationality}</p>}
+              </div>
+              </div>
+            <div>
               <span className="block text-sm font-medium text-gray-700 mb-2">Have you ever visited Kasr El Badi?</span>
               <div className="flex space-x-4">
                 <button
