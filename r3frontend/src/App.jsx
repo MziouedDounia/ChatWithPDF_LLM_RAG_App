@@ -6,7 +6,15 @@ import LoadingSVG from "./components/LoadingSVG";
 import { startSession } from "./hooks/ChatBotAPI";
 import "./styles.css";
 
-function Layout({ children }) {
+function Layout({ children, isLoading }) {
+  if (isLoading) {
+    return <LoadingSVG />;
+  }
+
+  return children;
+}
+
+function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isFormSubmitted, setIsFormSubmitted] = useState(false);
   const [sessionId, setSessionId] = useState(null);
@@ -24,83 +32,61 @@ function Layout({ children }) {
       }
     }
     
-    // Ajout d'un délai artificiel pour l'animation de chargement
-    setTimeout(() => setIsLoading(false), 4000);
+    const timer = setTimeout(() => setIsLoading(false), 4000);
+    return () => clearTimeout(timer);
   }, []);
 
-  if (isLoading) {
-    return <LoadingSVG />;
-  }
-
-  return children({ isFormSubmitted, sessionId, userData, setIsFormSubmitted, setSessionId, setUserData });
-}
-
-function App() {
-  const [isPageLoading, setIsPageLoading] = useState(false);
-
   const handleFormSubmit = async (formData) => {
-    setIsPageLoading(true);
-    console.log("Form submitted:", formData);
+    setIsLoading(true);
     try {
       const newSessionId = await startSession();
       localStorage.setItem('sessionId', newSessionId);
       localStorage.setItem('userData', JSON.stringify(formData));
-      setIsPageLoading(false);
-      return { sessionId: newSessionId, userData: formData };
+      setIsFormSubmitted(true);
+      setSessionId(newSessionId);
+      setUserData(formData);
     } catch (error) {
       console.error("Error starting session:", error);
-      setIsPageLoading(false);
-      throw error;
+      // Assuming the form component handles displaying this error
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleContinueAsGuest = async () => {
-    setIsPageLoading(true);
+    setIsLoading(true);
     try {
       const newSessionId = await startSession();
       localStorage.setItem('sessionId', newSessionId);
-      setIsPageLoading(false);
-      return { sessionId: newSessionId };
+      setIsFormSubmitted(true);
+      setSessionId(newSessionId);
     } catch (error) {
-      console.error("Error starting session:", error);
-      setIsPageLoading(false);
-      throw error;
+      console.error("Error starting guest session:", error);
+      // You might want to handle this error, perhaps by showing a message to the user
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <Router>
-      <Layout>
-        {({ isFormSubmitted, sessionId, userData, setIsFormSubmitted, setSessionId, setUserData }) => (
-          <>
-            {isPageLoading && <LoadingSVG />}
-            <Routes>
-              <Route path="/" element={<Navigate to="/home" replace />} />
-              <Route
-                path="/home"
-                element={
-                  isFormSubmitted ? (
-                    <Home sessionId={sessionId} userData={userData} />
-                  ) : (
-                    <Formulaire
-                      onSubmit={async (formData) => {
-                        const result = await handleFormSubmit(formData);
-                        setIsFormSubmitted(true);
-                        setSessionId(result.sessionId);
-                        setUserData(result.userData);
-                      }}
-                      onContinueAsGuest={async () => {
-                        const result = await handleContinueAsGuest();
-                        setIsFormSubmitted(true);
-                        setSessionId(result.sessionId);
-                      }}
-                    />
-                  )
-                }
-              />
-            </Routes>
-          </>
-        )}
+      <Layout isLoading={isLoading}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route
+            path="/home"
+            element={
+              isFormSubmitted ? (
+                <Home sessionId={sessionId} userData={userData} />
+              ) : (
+                <Formulaire
+                  onSubmit={handleFormSubmit}
+                  onContinueAsGuest={handleContinueAsGuest}
+                />
+              )
+            }
+          />
+        </Routes>
       </Layout>
     </Router>
   );
