@@ -2,4 +2,4 @@
 db_chroma2/*/length.bin
 __pycache__/
 .db_qsar_bdii/*/length.bin
-.node_modules/
+node_modules

@@ -1,10 +1,10 @@
 import { getChatbotResponse } from "../hooks/ChatBotAPI";
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "../styles.css";
 import BotMessage from "./BotMessage"; // Import BotMessage component
 import Modal from "./Modal"; // Import Modal component
 
-export const TypingBox = () => {
+export const TypingBox = ({ sessionId, userData }) => {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState(""); // State to store chatbot response
@@ -12,19 +12,37 @@ export const TypingBox = () => {
   const [history, setHistory] = useState([]); // State to store history of questions and answers
   const [isModalOpen, setIsModalOpen] = useState(false); // State to control modal visibility
 
+  useEffect(() => {
+    // You can use userData here if needed
+    console.log('User data:', userData);
+  }, [userData]);
+
   // Function to handle chatbot response fetching
   const ask = async () => {
-    setLoading(true); // Set loading to true before fetching
+    if (!sessionId) {
+      console.error('No active session');
+      // Optionally, you could redirect to the form here
+      return;
+    }
+    setLoading(true);
     try {
-      const answer = await getChatbotResponse(question); // Fetch response from API
-      setResponse(answer); // Set the response to state
-      setHistory([...history, { question, response: answer }]); // Add to history
+      const answer = await getChatbotResponse(question, sessionId);
+      setResponse(answer);
+      setHistory([...history, { question, response: answer }]);
     } catch (error) {
       console.error("Error fetching chatbot response:", error);
-      setResponse("I'm sorry, I couldn't understand that.");
+      if (error.response && error.response.status === 422) {
+        // Session might have expired
+        localStorage.removeItem('sessionId');
+        localStorage.removeItem('userData');
+        // Redirect to form or re-initialize session
+        window.location.reload();
+      } else {
+        setResponse("I'm sorry, I couldn't understand that.");
+      }
     } finally {
-      setLoading(false); // Set loading to false after fetching
-      setQuestion(""); // Clear the input after fetching
+      setLoading(false);
+      setQuestion("");
     }
   };
 

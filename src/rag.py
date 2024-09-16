@@ -33,14 +33,14 @@ load_dotenv()
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["LANGCHAIN_ENDPOINT"] = "https://api.langchain.plus/"
 os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGCHAIN_API_KEY")
+os.environ["LANGCHAIN_PROJECT"] = "rag qsar bdii"
 
 # Ensure API key is set
 if os.environ["LANGCHAIN_API_KEY"] is None:
     raise ValueError("LANGCHAIN_API_KEY is not set. Please check your .env file.")
 
 # Initialize the LLM with ChatOllama
-local_model = "qwen2:1.5b"
-# local_model="phi3"
+local_model = os.getenv("MODEL_NAME") 
 llm = ChatOllama(model=local_model)
 parser = StrOutputParser()
 
