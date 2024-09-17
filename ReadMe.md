@@ -8,5 +8,6 @@ To run the frontend, navigate to the r3frontend directory and use the following 
 
 ```bash
 cd r3frontend
+yarn
 yarn dev
 ```
