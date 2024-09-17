@@ -2,7 +2,14 @@ const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const nodemailer = require('nodemailer');  // Import nodemailer
+const nodemailer = require('nodemailer');
+const { render } = require('@react-email/render');
+const dotenv = require('dotenv');
+
+// Import the transpiled React Email template
+const { EmailTemplate } = require('./EmailTemplate');
+
+dotenv.config();
 
 const app = express();
 const port = 5000;
@@ -13,7 +20,7 @@ app.use(cors({
     origin: 'http://localhost:5173', 
     methods: ['GET', 'POST'],        
     credentials: true                
-  }));
+}));
 
 // Connect to SQLite database
 const db = new sqlite3.Database('./LLMForms.db', (err) => {
@@ -33,50 +40,88 @@ db.run(
     }
 );
 
-// Configure nodemailer transporter (this is an example using Gmail)
+// Configure nodemailer transporter
 let transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: 'merykarimi09@gmail.com',    // Replace with your email
-    pass: 'gcsj zlsy xjtv twic'      // Replace with your email password (consider using environment variables)
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
+
+const sendEmail = async (to, name) => {
+  try {
+    // Await the email HTML rendering
+    const emailHtml = await render(EmailTemplate({ name }));
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: to,
+      subject: 'Thank You for Visiting Kasr El Badi',
+      html: emailHtml,
+    };
+
+    // Send the email and return the result
+    const info = await new Promise((resolve, reject) => {
+      transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+          console.error('Email error:', error);
+          reject(error);
+        } else {
+          console.log('Email sent:', info.response);
+          resolve(info);
+        }
+      });
+    });
+
+    return info;
+  } catch (error) {
+    console.error('Error in sendEmail:', error);
+    throw error;
+  }
+};
+
+// Example route to send an email
+app.post('/send-email', async (req, res) => {
+  const { to, name } = req.body;
+
+  try {
+    const result = await sendEmail(to, name);
+    res.status(200).json({ message: 'Email sent successfully', result });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to send email', error });
   }
 });
 
 // Endpoint to insert data into SQLite and send email
-app.post('/api/credentials', (req, res) => {
+app.post('/api/credentials', async (req, res) => {
   const { name, email, nationality, isKasrElBadiVisited } = req.body;
 
-  if (!name || !email || !nationality || !isKasrElBadiVisited) {
-    return res.status(400).json({ error: 'Name, email, and others are required' });
+  if (!name || !email || !nationality || isKasrElBadiVisited === undefined) {
+    return res.status(400).json({ error: 'All fields are required' });
   }
 
   const query = `INSERT INTO credentials (name, email, nationality, isKasrElBadiVisited) VALUES (?, ?, ?, ?)`;
   
-  db.run(query, [name, email, nationality, isKasrElBadiVisited], function (err) {
+  db.run(query, [name, email, nationality, isKasrElBadiVisited], async function (err) {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
 
-    // If data is inserted successfully, send the email
-    let mailOptions = {
-      from: 'merykarimi09@gmail.com',  // Replace with your email
-      to: email,                     // Send email to the user who submitted the form
-      subject: 'Form Submission Confirmation',
-      text: `Dear ${name},\n\nThank you for submitting your information and visiting Kasr El Badi.\n\nWe would really appreciate it if you could take a moment to rate your visit and provide feedback.\n\nPlease click on the link below to rate your experience:\n\n[Provide Your Rating](https://docs.google.com/forms/d/e/1FAIpQLSeNNHo_-PPcGWuyjHIVzce-Qnwaffn-4XLjaVt3NjIW6p8vag/viewform?usp=sf_link)\n\nThank you for your time!\n\nBest regards,\nYour Team`,
-    };
-
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error('Email error:', error); // Log the error to the console
-        return res.status(500).json({ error: 'Email could not be sent: ' + error.message });
-      }
-      console.log('Email sent: ' + info.response); // Log successful email sending
+    try {
+      await sendEmail(email, name);
       res.status(201).json({
         id: this.lastID,
         message: 'Data inserted and email sent successfully'
       });
-    });
-    
+    } catch (emailError) {
+      // If email fails, we still keep the data but inform about email failure
+      res.status(201).json({
+        id: this.lastID,
+        message: 'Data inserted successfully, but email could not be sent',
+        emailError: emailError.message
+      });
+    }
   });
 });
 

@@ -243,19 +243,36 @@ export const Form = ({ onSubmit, onContinueAsGuest }) => {
     e.preventDefault();
     setMessage('');
     if (!validateForm()) return;
+  
+    // Create the submission data object using the current formData state
     const submissionData = {
       name: formData.name,
       email: formData.email,
-      nationality: formData.nationality?.value,
-      isKasrElBadiVisited: formData.visitedKasrElBadi === "yes"
+      nationality: formData.nationality?.value, // Use the value property of the nationality object
+      isKasrElBadiVisited: formData.visitedKasrElBadi === "yes" ? true : false
     };
+  
     try {
       const response = await axios.post('http://localhost:5000/api/credentials', submissionData);
       setMessage(`User added with ID: ${response.data.id}`);
-      onSubmit(submissionData);
+      onSubmit(submissionData); // Pass the submissionData to the onSubmit prop
     } catch (error) {
       setMessage('Error submitting form. Please try again.');
       console.error('Error submitting form:', error);
+      // Log more details about the error
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error('Error data:', error.response.data);
+        console.error('Error status:', error.response.status);
+        console.error('Error headers:', error.response.headers);
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('No response received:', error.request);
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error('Error message:', error.message);
+      }
     }
   };
 
