@@ -4,7 +4,7 @@ import "../styles.css";
 import BotMessage from "./BotMessage"; // Import BotMessage component
 import Modal from "./Modal"; // Import Modal component
 
-export const TypingBox = () => {
+export const TypingBox  = ({ onVisemeData }) => {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState(""); // State to store chatbot response
@@ -127,7 +127,9 @@ export const TypingBox = () => {
 
       {/* Pass the response to BotMessage for audio playback */}
       {response && !loading && (
-        <BotMessage fetchMessage={() => Promise.resolve(response)} />
+        <BotMessage fetchMessage={() => Promise.resolve(response)} 
+        onVisemeData={onVisemeData}
+        />
       )}
 
       {/* Modal for History */}

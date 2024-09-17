@@ -29,11 +29,12 @@ function phonemesToVisemes(phonemes) {
   return phonemes.map(phoneme => phonemeToVisemeMap[phoneme] || 'viseme_sil');
 }
 
-export default function BotMessage({ fetchMessage }) {
+export default function BotMessage({ fetchMessage, onVisemeData  }) {
   const [isLoading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [selectedVoice, setSelectedVoice] = useState(null);
   const utteranceRef = useRef(null);
+  const hasSpokenRef = useRef(false);
 
   useEffect(() => {
     async function loadMessage() {
@@ -69,7 +70,7 @@ export default function BotMessage({ fetchMessage }) {
   };
 
   useEffect(() => {
-    if (!isLoading && message && selectedVoice) {
+    if (!isLoading && message && selectedVoice && !hasSpokenRef.current) {
       if ("speechSynthesis" in window) {
         const utterance = new SpeechSynthesisUtterance(message);
         utterance.voice = selectedVoice;
@@ -89,16 +90,18 @@ export default function BotMessage({ fetchMessage }) {
           timings.forEach((timing, index) => {
             setTimeout(() => {
               console.log(`Current Viseme: ${visemes[index]}, Timing: ${timing}ms`);
+              onVisemeData(visemes[index], timings[index]); // Pass viseme and timing data
             }, timing);
           });
         };
 
         window.speechSynthesis.speak(utterance);
+        hasSpokenRef.current = true; // Mark as spoken
       } else {
         console.error("Speech synthesis not supported in this browser.");
       }
     }
-  }, [isLoading, message, selectedVoice]);
+  }, [isLoading, message, selectedVoice, onVisemeData]);
 
   return (
     <div className="message-container">
