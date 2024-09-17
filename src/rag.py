@@ -1,5 +1,5 @@
 import asyncio
-from typing import List
+from typing import Any, Dict, List, Tuple
 from langchain_community.chat_models import ChatOllama
 from langchain_core.output_parsers import StrOutputParser
 from langchain_chroma import Chroma
@@ -334,23 +334,21 @@ def format_chat_history(messages: List[HumanMessage | AIMessage]) -> str:
             formatted_history += f"AI: {message.content}\n"
     return formatted_history.strip()
 
-async def get_answer_and_docs(question: str, session_id: str) -> str:
+async def get_answer_and_docs(question: str, session_id: str) -> Tuple[str, str]:
+    source_language = "eng_Latn"
     try:
         source_language = detect_language(question)
         logger.info(f"Detected language: {source_language}")
 
+        question_en = question
         if source_language != "eng_Latn":
             logger.info(f"Translating question from {source_language} to English")
             question_en = await translate_with_timeout(question, target_lang="eng_Latn")
-            if question_en.startswith("Operation timed out") or question_en.startswith("Operation failed"):
-                return "I'm sorry, but the translation process encountered an issue. Please try again or use English if possible."
-            logger.info(f"Translated question: {question_en}")
-        else:
-            question_en = question
+            if question_en.startswith(("Operation timed out", "Operation failed")):
+                return "I'm sorry, but the translation process encountered an issue. Please try again or use English if possible.", source_language
 
         chat_history = get_session_history(session_id)
 
-        # Use a timeout for the classification and QA operations
         try:
             needs_retrieval = await asyncio.wait_for(
                 asyncio.to_thread(classify_query, question_en, chat_history.messages),
@@ -360,42 +358,53 @@ async def get_answer_and_docs(question: str, session_id: str) -> str:
             logger.warning("Query classification timed out. Defaulting to retrieval.")
             needs_retrieval = True
 
-        try:
-            if needs_retrieval:
-                logging.info("Performing RAG retrieval")
-                response = await asyncio.wait_for(
-                    conversational_rag_chain.ainvoke(
-                        {"input": question_en},
-                        config={"configurable": {"session_id": session_id}}
-                    ),
-                    timeout=30.0
-                )
-                answer = response.get('answer', "I'm sorry, I couldn't find an answer.")
-                logging.info(f"RAG answer: {answer}")
-            else:
-                logging.info("Using direct LLM response")
-                chain_input = prompt_template.format(chat_history=chat_history.messages, input=question_en)
-                response = await asyncio.wait_for(llm.ainvoke(chain_input), timeout=10.0)
-                answer = response.content if isinstance(response, AIMessage) else str(response)
-                logging.info(f"LLM answer: {answer}")
+        if needs_retrieval:
+            logger.info("Performing RAG retrieval")
+            response = await asyncio.wait_for(
+                conversational_rag_chain.ainvoke(
+                    {"input": question_en},
+                    config={"configurable": {"session_id": session_id}}
+                ),
+                timeout=30.0
+            )
+            answer = response.get('answer', "I'm sorry, I couldn't find an answer.")
+            logger.info(f"RAG answer: {answer}")
+        else:
+            logger.info("Using direct LLM response")
+            chain_input = prompt_template.format(chat_history=chat_history.messages, input=question_en)
+            response = await asyncio.wait_for(llm.ainvoke(chain_input), timeout=10.0)
+            answer = response.content if isinstance(response, AIMessage) else str(response)
+            logger.info(f"LLM answer: {answer}")
 
-            chat_history.add_user_message(question_en)
-            chat_history.add_ai_message(answer)
+        chat_history.add_user_message(question_en)
+        chat_history.add_ai_message(answer)
 
-            if source_language != "eng_Latn":
-                logging.info(f"Translating answer from English to {source_language}")
-                answer_content = await translate_with_timeout(answer.strip(), target_lang=source_language)
-                if answer_content.startswith("Operation timed out") or answer_content.startswith("Operation failed"):
-                    return "I have an answer, but the translation back to your language encountered an issue. Would you like the answer in English instead?"
-            else:
-                answer_content = answer.strip()
+        answer_content = answer.strip()
+        if source_language != "eng_Latn":
+            logger.info(f"Translating answer from English to {source_language}")
+            answer_content = await translate_with_timeout(answer.strip(), target_lang=source_language)
+            logger.info(f"Original answer length: {len(answer)}, Translated answer length: {len(answer_content)}")
+            
+            if answer_content.startswith(("Operation timed out", "Operation failed")):
+                return "I have an answer, but the translation back to your language encountered an issue. Would you like the answer in English instead?", source_language
+            
+            is_translation_correct = await verify_translation(answer.strip(), answer_content, "eng_Latn", source_language)
+            if not is_translation_correct:
+                logger.warning("Translation verification failed. Using LLM for retranslation.")
+                answer_content = await translate_with_llm(answer.strip(), source_language)
 
-            logging.info(f"Final answer: {answer_content}")
-            return answer_content
+            if len(answer_content) < len(answer) * 0.5:
+                logger.warning("Translation appears incomplete. Falling back to English.")
+                return answer.strip(), "eng_Latn"
 
-        except asyncio.TimeoutError:
-            return "I'm sorry, but the operation took too long to complete. Please try again or rephrase your question."
+        logger.info(f"Final answer: {answer_content}")
+        return answer_content, source_language
+
+    except asyncio.TimeoutError:
+        logger.error("Operation timed out", exc_info=True)
+        return "I'm sorry, but the operation took too long to complete. Please try again or rephrase your question.", source_language
 
     except Exception as e:
-        logging.error(f"Error in get_answer_and_docs: {str(e)}", exc_info=True)
-        return f"An error occurred while processing the question: {str(e)}"
+        logger.error(f"Error in get_answer_and_docs: {str(e)}", exc_info=True)
+        return f"An error occurred while processing the question: {str(e)}", source_language
+    

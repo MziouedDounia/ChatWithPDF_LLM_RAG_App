@@ -21,24 +21,33 @@ export const TypingBox = ({ sessionId, userData }) => {
   const ask = async () => {
     if (!sessionId) {
       console.error('No active session');
-      // Optionally, you could redirect to the form here
+      setResponse({ text: "Session expired. Please refresh the page.", language: "eng_Latn" });
       return;
     }
+    
     setLoading(true);
     try {
-      const answer = await getChatbotResponse(question, sessionId);
-      setResponse(answer);
-      setHistory([...history, { question, response: answer }]);
+      const { answer, language } = await getChatbotResponse(question, sessionId);
+      
+      const newResponse = { text: answer, language: language };
+      setResponse(newResponse);
+      
+      setHistory(prev => [...prev, { question, response: answer, language: language }]);
     } catch (error) {
       console.error("Error fetching chatbot response:", error);
+      
       if (error.response && error.response.status === 422) {
-        // Session might have expired
+        // Session invalid or expired
         localStorage.removeItem('sessionId');
         localStorage.removeItem('userData');
-        // Redirect to form or re-initialize session
-        window.location.reload();
+        setResponse({ text: "Your session has expired. The page will refresh.", language: "eng_Latn" });
+        setTimeout(() => window.location.reload(), 3000); // Delay reload for 3 seconds to show message
       } else {
-        setResponse("I'm sorry, I couldn't understand that.");
+        // General error
+        setResponse({ 
+          text: "I'm sorry, I couldn't process that request. Please try again.", 
+          language: "eng_Latn" 
+        });
       }
     } finally {
       setLoading(false);

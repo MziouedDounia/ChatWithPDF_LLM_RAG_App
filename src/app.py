@@ -1,3 +1,4 @@
+import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +8,7 @@ import uuid
 import threading
 
 from src.rag import get_answer_and_docs
+logger = logging.getLogger(__name__)
 
 # In-memory session store to hold session metadata (not chat history)
 session_store = {}
@@ -87,25 +89,38 @@ def start_session():
 # API Endpoint to handle chat messages
 @app.post("/chat")
 async def chat(message: Message):
-    # If no session_id is provided, raise an error
     if not message.session_id:
         raise HTTPException(status_code=400, detail="Session ID is required.")
 
-    # Update last active timestamp for session
-    session_metadata = get_session_metadata(message.session_id)
-    session_metadata['last_active'] = time.time()
+    try:
+        # Update last active timestamp for session
+        session_metadata = get_session_metadata(message.session_id)
+        session_metadata['last_active'] = time.time()
 
-    # Call your function in rag.py to process the message and generate a response
-    response_text = await get_answer_and_docs(message.message, message.session_id)
+        # Call your function in rag.py to process the message and generate a response
+        answer, detected_language = await get_answer_and_docs(message.message, message.session_id)
 
-    # Return the chat response
-    response_content = {
-        "question": message.message,
-        "answer": response_text,
-        "session_id": message.session_id  # Return session ID for client-side tracking
-    }
+        # Prepare the response content
+        response_content = {
+            "question": message.message,
+            "answer": answer,
+            "detected_language": detected_language,
+            "session_id": message.session_id
+        }
 
-    return JSONResponse(content=response_content, status_code=200)
+        return JSONResponse(content=response_content, status_code=200)
+
+    except Exception as e:
+        # Log the error
+        logger.error(f"Error in chat endpoint: {str(e)}", exc_info=True)
+        
+        # Return a generic error message to the client
+        error_response = {
+            "error": "An error occurred while processing your request.",
+            "session_id": message.session_id
+        }
+        return JSONResponse(content=error_response, status_code=500)
+
 
 # API Endpoint to retrieve session metadata (this doesn't return chat history)
 @app.get("/session_metadata/{session_id}")

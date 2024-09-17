@@ -23,9 +23,16 @@ export const getChatbotResponse = async (message, sessionId) => {
       message: message,
       session_id: sessionId
     });
-    return response.data.answer; // Adjust based on the response structure of your API
+    // Extract only the answer and detected language from the response
+    const { answer, detected_language } = response.data;
+    // Return an object with just the answer and language
+    return {
+      answer,
+      language: detected_language
+    };
   } catch (error) {
     console.error("Error fetching chatbot response:", error);
-    throw error;
+    // Provide a generic error message
+    throw new Error("Failed to get chatbot response. Please try again.");
   }
 };
