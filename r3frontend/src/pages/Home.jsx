@@ -3,7 +3,7 @@ import { Canvas } from "@react-three/fiber";
 import { Experience } from "../components/Experience";
 import { TypingBox } from "../components/TypingBox";
 import "../../src/styles.css";
-
+import {Leva} from Leva;
 const Home = () => {
   const [visemeData, setVisemeData] = useState({ viseme: '', time: 0 });
 
@@ -13,6 +13,7 @@ const Home = () => {
 
   return (
     <>
+    
       <div className="typing-box-container">
         <TypingBox onVisemeData={handleVisemeData} />
       </div>
