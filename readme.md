@@ -6,3 +6,8 @@ move to server and node server.js
 python populate.py : to add data
 python query_data.py "question"
 pytest -s : to test question and expected response
+```bash
+cd r3frontend
+yarn
+yarn dev
+```
