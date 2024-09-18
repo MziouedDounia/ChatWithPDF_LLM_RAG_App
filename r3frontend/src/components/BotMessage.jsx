@@ -76,7 +76,7 @@ export default function BotMessage({ fetchMessage, onVisemeData  }) {
         utterance.voice = selectedVoice;
         utteranceRef.current = utterance;
 
-        const wordsPerMinute = 150;
+        const wordsPerMinute = 120;
         const wordCount = message.split(' ').length;
         const estimatedDuration = (wordCount / wordsPerMinute) * 60 * 1000; // Convert to milliseconds
 

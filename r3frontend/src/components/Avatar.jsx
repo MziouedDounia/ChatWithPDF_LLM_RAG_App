@@ -31,9 +31,9 @@ export function Avatar({ visemeData, ...props }) {
       const visemeTeethIndex = nodes.Wolf3D_Teeth.morphTargetDictionary[visemeData.viseme];
       const visemeBeardIndex = nodes.Wolf3D_Beard.morphTargetDictionary[visemeData.viseme];
       if (visemeIndex !== undefined) {
-        nodes.Wolf3D_Head.morphTargetInfluences[visemeIndex] = 1;
-        nodes.Wolf3D_Teeth.morphTargetInfluences[visemeTeethIndex] = 1;
-        nodes.Wolf3D_Beard.morphTargetInfluences[visemeBeardIndex] = 1;
+        nodes.Wolf3D_Head.morphTargetInfluences[visemeIndex] = 0.8;
+        nodes.Wolf3D_Teeth.morphTargetInfluences[visemeTeethIndex] = 0.5;
+        nodes.Wolf3D_Beard.morphTargetInfluences[visemeBeardIndex] = 0.3;
 
         // Reset the viseme after the timing interval (in milliseconds)
         setTimeout(() => {
