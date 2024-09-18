@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 
 const LANGUAGE_MAPPINGS = {
   'eng_Latn': 'en-US',
@@ -24,16 +24,42 @@ const LANGUAGE_MAPPINGS = {
   'ukr_Cyrl': 'uk-UA',
   'nld_Latn': 'nl-NL',
   'tur_Latn': 'tr-TR',
-    // Add more mappings as needed
-
 };
 
-export default function BotMessage({ fetchMessage }) {
+const phonemeToVisemeMap = {
+  B: 'viseme_PP', M: 'viseme_PP', P: 'viseme_PP',
+  F: 'viseme_FF', V: 'viseme_FF',
+  TH: 'viseme_TH',
+  D: 'viseme_DD', T: 'viseme_DD',
+  K: 'viseme_kk', G: 'viseme_kk',
+  CH: 'viseme_CH', J: 'viseme_CH', SH: 'viseme_CH',
+  S: 'viseme_SS', Z: 'viseme_SS',
+  N: 'viseme_nn', L: 'viseme_nn',
+  R: 'viseme_RR',
+  A: 'viseme_aa', E: 'viseme_E', I: 'viseme_I', O: 'viseme_O', U: 'viseme_U',
+  '*': 'viseme_sil'
+};
+
+function textToPhonemes(text) {
+  return text.toUpperCase().split('').map(char => {
+    if ('AEIOU'.includes(char)) return char;
+    if ('BCDFGHJKLMNPQRSTVWXYZ'.includes(char)) return char;
+    return '_';
+  });
+}
+
+function phonemesToVisemes(phonemes) {
+  return phonemes.map(phoneme => phonemeToVisemeMap[phoneme] || 'viseme_sil');
+}
+
+export default function BotMessage({ fetchMessage, onVisemeData }) {
   const [isLoading, setLoading] = useState(true);
   const [message, setMessage] = useState({ text: "", language: "" });
   const [selectedVoice, setSelectedVoice] = useState(null);
   const [availableVoices, setAvailableVoices] = useState([]);
   const [error, setError] = useState(null);
+  const utteranceRef = useRef(null);
+  const hasSpokenRef = useRef(false);
 
   const loadMessage = useCallback(async () => {
     try {
@@ -96,17 +122,45 @@ export default function BotMessage({ fetchMessage }) {
     }
   }, [message.language, availableVoices]);
 
+  const estimateVisemesAndTimings = (text, duration) => {
+    const phonemes = textToPhonemes(text);
+    const visemes = phonemesToVisemes(phonemes);
+    const timings = phonemes.map((_, index) => (index * duration) / phonemes.length);
+    return { visemes, timings };
+  };
+
   useEffect(() => {
-    if (!isLoading && message.text && selectedVoice) {
+    if (!isLoading && message.text && selectedVoice && !hasSpokenRef.current) {
       if ("speechSynthesis" in window) {
         const utterance = new SpeechSynthesisUtterance(message.text);
         utterance.voice = selectedVoice;
         utterance.lang = selectedVoice.lang;
+        utteranceRef.current = utterance;
+
+        const wordsPerMinute = 160;
+        const wordCount = message.text.split(' ').length;
+        const estimatedDuration = (wordCount / wordsPerMinute) * 60 * 1000;
+
+        const { visemes, timings } = estimateVisemesAndTimings(message.text, estimatedDuration);
+
+        console.log('Visemes and Timings: ', visemes, timings);
+
+        utterance.onstart = () => {
+          console.log("Speech started");
+          timings.forEach((timing, index) => {
+            setTimeout(() => {
+              console.log(`Current Viseme: ${visemes[index]}, Timing: ${timing}ms`);
+              onVisemeData(visemes[index], timings[index]);
+            }, timing);
+          });
+        };
+
         window.speechSynthesis.cancel();
         window.speechSynthesis.speak(utterance);
+        hasSpokenRef.current = true;
       }
     }
-  }, [isLoading, message.text, selectedVoice]);
+  }, [isLoading, message.text, selectedVoice, onVisemeData]);
 
   if (error) {
     return <div className="error-message">{error}</div>;
