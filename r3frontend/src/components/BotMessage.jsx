@@ -39,12 +39,12 @@ export default function BotMessage({ fetchMessage }) {
       setLoading(false);
       setMessage({
         text: msg.text || "",
-        language: msg.language || ""
+        language: msg.language || "eng_Latn"
       });
     } catch (error) {
       console.error("Error fetching message:", error);
       setLoading(false);
-      setMessage({ text: "Error fetching message. Please try again.", language: "eng_Latn" });
+      setMessage({ text: "Error fetching message", language: "eng_Latn" });
     }
   }, [fetchMessage]);
 
@@ -53,34 +53,41 @@ export default function BotMessage({ fetchMessage }) {
   }, [loadMessage]);
 
   useEffect(() => {
+    let voiceCheckInterval;
+
     function updateVoices() {
       const voices = window.speechSynthesis.getVoices();
-      setAvailableVoices(voices);
-      console.log("Available voices:", voices.map(v => `${v.name} (${v.lang})`));
+      if (voices.length > 0) {
+        setAvailableVoices(voices);
+        console.log("All available voices:", voices);
+        clearInterval(voiceCheckInterval);
+      }
     }
-    
-    window.speechSynthesis.onvoiceschanged = updateVoices;
+
     updateVoices();
-    
-    return () => {
-      window.speechSynthesis.onvoiceschanged = null;
-    };
+    voiceCheckInterval = setInterval(updateVoices, 100);
+
+    return () => clearInterval(voiceCheckInterval);
   }, []);
 
   useEffect(() => {
     function selectVoice(language) {
-      const targetVoiceName = NLLB_TO_VOICE_NAME[language] || NLLB_TO_VOICE_NAME['eng_Latn'];
-      let voice = availableVoices.find(v => v.name === targetVoiceName);
-      
+      const targetVoiceName = NLLB_TO_VOICE_NAME[language];
+      let voice;
+
+      if (targetVoiceName) {
+        voice = availableVoices.find(v => v.name === targetVoiceName);
+      }
+
       if (!voice) {
         console.warn(`Voice ${targetVoiceName} not found. Trying to find a voice for the language.`);
         const languageCode = language.split('_')[0];
         voice = availableVoices.find(v => v.lang.startsWith(languageCode));
       }
-      
+
       if (!voice && availableVoices.length > 0) {
         console.warn("No matching voice found. Using default voice.");
-        voice = availableVoices[0];
+        voice = availableVoices.find(v => v.lang.startsWith('en')) || availableVoices[0];
       }
 
       setSelectedVoice(voice);
@@ -98,7 +105,7 @@ export default function BotMessage({ fetchMessage }) {
         const utterance = new SpeechSynthesisUtterance(message.text);
         utterance.voice = selectedVoice;
         utterance.lang = selectedVoice.lang;
-        window.speechSynthesis.cancel(); // Cancel any ongoing speech
+        window.speechSynthesis.cancel();
         window.speechSynthesis.speak(utterance);
       } else {
         console.error("Speech synthesis not supported in this browser.");
@@ -111,6 +118,7 @@ export default function BotMessage({ fetchMessage }) {
       <div className="bot-message">{isLoading ? "..." : message.text}</div>
       <div className="language-info">Detected language: {message.language}</div>
       <div className="voice-info">Selected voice: {selectedVoice ? selectedVoice.name : "None"}</div>
+      <div className="voice-count">Total voices: {availableVoices.length}</div>
     </div>
   );
 }
