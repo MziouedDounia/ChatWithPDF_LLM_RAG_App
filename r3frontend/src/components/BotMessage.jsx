@@ -1,31 +1,31 @@
 import React, { useState, useEffect, useCallback } from "react";
-import ISO6391 from 'iso-639-1';
 
 const LANGUAGE_MAPPINGS = {
-  'eng_Latn': 'en',
-  'fra_Latn': 'fr',
-  'spa_Latn': 'es',
-  'deu_Latn': 'de',
-  'ita_Latn': 'it',
+  'eng_Latn': 'en-US',
+  'fra_Latn': 'fr-FR',
+  'spa_Latn': 'es-ES',
+  'deu_Latn': 'de-DE',
+  'ita_Latn': 'it-IT',
   'swh_Latn': 'sw',
-  'arb_Arab': 'ar',
-  'rus_Cyrl': 'ru',
+  'arb_Arab': 'ar-MA',
+  'rus_Cyrl': 'ru-RU',
   'zho_Hans': 'zh-CN',
   'zho_Hant': 'zh-TW',
-  'jpn_Jpan': 'ja',
-  'kor_Hang': 'ko',
-  'por_Latn': 'pt',
-  'hin_Deva': 'hi',
-  'ben_Beng': 'bn',
-  'urd_Arab': 'ur',
-  'vie_Latn': 'vi',
-  'ind_Latn': 'id',
-  'tha_Thai': 'th',
-  'pol_Latn': 'pl',
-  'ukr_Cyrl': 'uk',
-  'nld_Latn': 'nl',
-  'tur_Latn': 'tr',
-  // Add more mappings as needed
+  'jpn_Jpan': 'ja-JP',
+  'kor_Hang': 'ko-KR',
+  'por_Latn': 'pt-BR',
+  'hin_Deva': 'hi-IN',
+  'ben_Beng': 'bn-IN',
+  'urd_Arab': 'ur-PK',
+  'vie_Latn': 'vi-VN',
+  'ind_Latn': 'id-ID',
+  'tha_Thai': 'th-TH',
+  'pol_Latn': 'pl-PL',
+  'ukr_Cyrl': 'uk-UA',
+  'nld_Latn': 'nl-NL',
+  'tur_Latn': 'tr-TR',
+    // Add more mappings as needed
+
 };
 
 export default function BotMessage({ fetchMessage }) {
@@ -33,11 +33,11 @@ export default function BotMessage({ fetchMessage }) {
   const [message, setMessage] = useState({ text: "", language: "" });
   const [selectedVoice, setSelectedVoice] = useState(null);
   const [availableVoices, setAvailableVoices] = useState([]);
+  const [error, setError] = useState(null);
 
   const loadMessage = useCallback(async () => {
     try {
       const msg = await fetchMessage();
-      console.log("Received message:", msg);
       setLoading(false);
       setMessage({
         text: msg.text || "",
@@ -46,7 +46,8 @@ export default function BotMessage({ fetchMessage }) {
     } catch (error) {
       console.error("Error fetching message:", error);
       setLoading(false);
-      setMessage({ text: "Error fetching message", language: "eng_Latn" });
+      setError("Error fetching message. Please try again.");
+      setMessage({ text: "Error fetching message. Please try again", language: "eng_Latn" });
     }
   }, [fetchMessage]);
 
@@ -55,53 +56,39 @@ export default function BotMessage({ fetchMessage }) {
   }, [loadMessage]);
 
   useEffect(() => {
+    let voiceCheckInterval;
+
     function updateVoices() {
-      const voices = window.speechSynthesis.getVoices();
-      if (voices.length > 0) {
-        setAvailableVoices(voices);
+      if ("speechSynthesis" in window) {
+        const voices = window.speechSynthesis.getVoices();
         console.log("All available voices:", voices);
-        
-        // Debug information
-        const languageCounts = {};
-        voices.forEach(voice => {
-          const langCode = voice.lang.split('-')[0];
-          languageCounts[langCode] = (languageCounts[langCode] || 0) + 1;
-        });
-        
-        console.log("Language distribution:", languageCounts);
-        console.log("Total unique languages:", Object.keys(languageCounts).length);
-        
-        voices.forEach(voice => {
-          console.log(`Voice: ${voice.name}, Lang: ${voice.lang}, Default: ${voice.default}`);
-        });
+        if (voices.length > 0) {
+          setAvailableVoices(voices);
+          clearInterval(voiceCheckInterval);
+        }
+      } else {
+        setError("Speech synthesis not supported in this browser.");
+        clearInterval(voiceCheckInterval);
       }
     }
 
     updateVoices();
-    window.speechSynthesis.onvoiceschanged = updateVoices;
+    voiceCheckInterval = setInterval(updateVoices, 100);
 
-    return () => {
-      window.speechSynthesis.onvoiceschanged = null;
-    };
+    return () => clearInterval(voiceCheckInterval);
   }, []);
 
   useEffect(() => {
     function selectVoice(language) {
-      const isoCode = LANGUAGE_MAPPINGS[language] || language.split('_')[0];
-      const languageName = ISO6391.getName(isoCode);
-      
-      let voice = availableVoices.find(v => 
-        v.lang.startsWith(isoCode) || 
-        v.name.toLowerCase().includes(languageName.toLowerCase())
-      );
+      const langCode = LANGUAGE_MAPPINGS[language] || language.split('_')[0];
+      let voice = availableVoices.find(v => v.lang.startsWith(langCode));
 
       if (!voice && availableVoices.length > 0) {
-        console.warn(`No matching voice found for ${languageName}. Using default voice.`);
+        console.warn(`No matching voice found for ${langCode}. Using default voice.`);
         voice = availableVoices.find(v => v.lang.startsWith('en')) || availableVoices[0];
       }
 
       setSelectedVoice(voice);
-      console.log("Selected voice:", voice ? voice.name : "None");
     }
 
     if (availableVoices.length > 0 && message.language) {
@@ -117,18 +104,22 @@ export default function BotMessage({ fetchMessage }) {
         utterance.lang = selectedVoice.lang;
         window.speechSynthesis.cancel();
         window.speechSynthesis.speak(utterance);
-      } else {
-        console.error("Speech synthesis not supported in this browser.");
       }
     }
   }, [isLoading, message.text, selectedVoice]);
+
+  if (error) {
+    return <div className="error-message">{error}</div>;
+  }
 
   return (
     <div className="message-container">
       <div className="bot-message">{isLoading ? "..." : message.text}</div>
       <div className="language-info">Detected language: {message.language}</div>
-      <div className="voice-info">Selected voice: {selectedVoice ? selectedVoice.name : "None"}</div>
-      <div className="voice-count">Total voices: {availableVoices.length}</div>
+      <div className="voice-info">
+        Selected voice: {selectedVoice ? `${selectedVoice.name} (${selectedVoice.lang})` : "None"}
+      </div>
+      <div className="voice-count">Available voices: {availableVoices.length}</div>
     </div>
   );
 }

@@ -5,9 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import time
 import uuid
-import threading
+import asyncio
+from contextlib import asynccontextmanager
 
-from src.rag import get_answer_and_docs
+from src.rag import get_answer_and_docs, DualLanguageDetector
 logger = logging.getLogger(__name__)
 
 # In-memory session store to hold session metadata (not chat history)
@@ -16,8 +17,11 @@ session_store = {}
 # Session expiration time (e.g., 1 hour)
 session_expiration_time = 3600  # 1 hour
 
+# Initialize the language detector
+detector = DualLanguageDetector()
+
 # Cleanup function to remove expired sessions
-def cleanup_sessions():
+async def cleanup_sessions():
     current_time = time.time()
     expired_sessions = []
 
@@ -30,19 +34,35 @@ def cleanup_sessions():
     # Remove expired sessions
     for session_id in expired_sessions:
         del session_store[session_id]
-        print(f"Session {session_id} has been cleaned up.")
+        logger.info(f"Session {session_id} has been cleaned up.")
 
-# Function to run session cleanup periodically in a separate thread
-def periodic_cleanup():
+# Function to run session cleanup periodically
+async def periodic_cleanup():
     while True:
-        cleanup_sessions()
-        time.sleep(60)  # Run every 60 seconds (you can adjust this)
+        await cleanup_sessions()
+        await asyncio.sleep(4320)  # Run every 60 seconds (you can adjust this)
 
-# Initialize FastAPI application
+# Lifespan context manager
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: initialize the language detector and schedule the periodic cleanup task
+    detector.warm_up()
+    logger.info("Language detector warmed up")
+    cleanup_task = asyncio.create_task(periodic_cleanup())
+    yield
+    # Shutdown: cancel the cleanup task
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
+
+# Initialize FastAPI application with lifespan
 app = FastAPI(
     title="RAG API",
     version="0.1",
-    description="A simple RAG API for fluid conversations"
+    description="A simple RAG API for fluid conversations",
+    lifespan=lifespan
 )
 
 # CORS Configuration
@@ -57,13 +77,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Lifespan event to handle startup and shutdown of the app
-@app.on_event("startup")
-async def start_background_tasks():
-    # Start the background thread for periodic session cleanup
-    cleanup_thread = threading.Thread(target=periodic_cleanup, daemon=True)
-    cleanup_thread.start()
 
 # Pydantic model for incoming messages
 class Message(BaseModel):
@@ -120,7 +133,6 @@ async def chat(message: Message):
             "session_id": message.session_id
         }
         return JSONResponse(content=error_response, status_code=500)
-
 
 # API Endpoint to retrieve session metadata (this doesn't return chat history)
 @app.get("/session_metadata/{session_id}")
