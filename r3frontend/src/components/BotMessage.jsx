@@ -1,29 +1,31 @@
 import React, { useState, useEffect, useCallback } from "react";
+import ISO6391 from 'iso-639-1';
 
-const NLLB_TO_VOICE_NAME = {
-  'eng_Latn': 'Microsoft David - English (United States)',
-  'fra_Latn': 'Microsoft Julie - French (France)',
-  'spa_Latn': 'Microsoft Pablo - Spanish (Spain)',
-  'deu_Latn': 'Microsoft Katja - German (Germany)',
-  'ita_Latn': 'Microsoft Elsa - Italian (Italy)',
-  'swh_Latn': 'Microsoft Zuri - Swahili (Kenya)',
-  'arb_Arab': 'Microsoft Hamed - Arabic (Saudi Arabia)',
-  'rus_Cyrl': 'Microsoft Dmitry - Russian (Russia)',
-  'zho_Hans': 'Microsoft Xiaoxiao - Chinese (Mainland)',
-  'zho_Hant': 'Microsoft HiuGaai - Chinese (Hong Kong)',
-  'jpn_Jpan': 'Microsoft Nanami - Japanese (Japan)',
-  'kor_Hang': 'Microsoft SunHi - Korean (Korea)',
-  'por_Latn': 'Microsoft Antonio - Portuguese (Brazil)',
-  'hin_Deva': 'Microsoft Swara - Hindi (India)',
-  'ben_Beng': 'Microsoft Bashkar - Bangla (India)',
-  'urd_Arab': 'Microsoft Uzma - Urdu (Pakistan)',
-  'vie_Latn': 'Microsoft HoaiMy - Vietnamese (Vietnam)',
-  'ind_Latn': 'Microsoft Andika - Indonesian (Indonesia)',
-  'tha_Thai': 'Microsoft Niwat - Thai (Thailand)',
-  'pol_Latn': 'Microsoft Paulina - Polish (Poland)',
-  'ukr_Cyrl': 'Microsoft Ostap - Ukrainian (Ukraine)',
-  'nld_Latn': 'Microsoft Colette - Dutch (Netherlands)',
-  'tur_Latn': 'Microsoft Emel - Turkish (Turkey)',
+const LANGUAGE_MAPPINGS = {
+  'eng_Latn': 'en',
+  'fra_Latn': 'fr',
+  'spa_Latn': 'es',
+  'deu_Latn': 'de',
+  'ita_Latn': 'it',
+  'swh_Latn': 'sw',
+  'arb_Arab': 'ar',
+  'rus_Cyrl': 'ru',
+  'zho_Hans': 'zh-CN',
+  'zho_Hant': 'zh-TW',
+  'jpn_Jpan': 'ja',
+  'kor_Hang': 'ko',
+  'por_Latn': 'pt',
+  'hin_Deva': 'hi',
+  'ben_Beng': 'bn',
+  'urd_Arab': 'ur',
+  'vie_Latn': 'vi',
+  'ind_Latn': 'id',
+  'tha_Thai': 'th',
+  'pol_Latn': 'pl',
+  'ukr_Cyrl': 'uk',
+  'nld_Latn': 'nl',
+  'tur_Latn': 'tr',
+  // Add more mappings as needed
 };
 
 export default function BotMessage({ fetchMessage }) {
@@ -53,40 +55,48 @@ export default function BotMessage({ fetchMessage }) {
   }, [loadMessage]);
 
   useEffect(() => {
-    let voiceCheckInterval;
-
     function updateVoices() {
       const voices = window.speechSynthesis.getVoices();
       if (voices.length > 0) {
         setAvailableVoices(voices);
         console.log("All available voices:", voices);
-        clearInterval(voiceCheckInterval);
+        
+        // Debug information
+        const languageCounts = {};
+        voices.forEach(voice => {
+          const langCode = voice.lang.split('-')[0];
+          languageCounts[langCode] = (languageCounts[langCode] || 0) + 1;
+        });
+        
+        console.log("Language distribution:", languageCounts);
+        console.log("Total unique languages:", Object.keys(languageCounts).length);
+        
+        voices.forEach(voice => {
+          console.log(`Voice: ${voice.name}, Lang: ${voice.lang}, Default: ${voice.default}`);
+        });
       }
     }
 
     updateVoices();
-    voiceCheckInterval = setInterval(updateVoices, 100);
+    window.speechSynthesis.onvoiceschanged = updateVoices;
 
-    return () => clearInterval(voiceCheckInterval);
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
   }, []);
 
   useEffect(() => {
     function selectVoice(language) {
-      const targetVoiceName = NLLB_TO_VOICE_NAME[language];
-      let voice;
-
-      if (targetVoiceName) {
-        voice = availableVoices.find(v => v.name === targetVoiceName);
-      }
-
-      if (!voice) {
-        console.warn(`Voice ${targetVoiceName} not found. Trying to find a voice for the language.`);
-        const languageCode = language.split('_')[0];
-        voice = availableVoices.find(v => v.lang.startsWith(languageCode));
-      }
+      const isoCode = LANGUAGE_MAPPINGS[language] || language.split('_')[0];
+      const languageName = ISO6391.getName(isoCode);
+      
+      let voice = availableVoices.find(v => 
+        v.lang.startsWith(isoCode) || 
+        v.name.toLowerCase().includes(languageName.toLowerCase())
+      );
 
       if (!voice && availableVoices.length > 0) {
-        console.warn("No matching voice found. Using default voice.");
+        console.warn(`No matching voice found for ${languageName}. Using default voice.`);
         voice = availableVoices.find(v => v.lang.startsWith('en')) || availableVoices[0];
       }
 
