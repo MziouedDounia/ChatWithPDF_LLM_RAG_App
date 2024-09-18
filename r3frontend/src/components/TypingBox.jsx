@@ -116,31 +116,8 @@ export const TypingBox = ({ sessionId, userData }) => {
             Ask
           </button>
 
-          {/* Recorder Button */}
-          <button
-            id="recorder"
-            className={`relative w-12 h-12 rounded-full flex items-center justify-center cursor-pointer bg-[#38383d] border border-[#f9f9fa33] shadow-md transition-all ${
-              recording ? "recording" : ""
-            }`}
-            onClick={startRecording}
-          >
-            <img
-              id="record"
-              src="https://assets.codepen.io/3537853/record.svg"
-              draggable="false"
-              className={`w-3/5 h-3/5 absolute ${
-                recording ? "animate-recording" : ""
-              }`}
-              alt="Record"
-            />
-            <img
-              id="arrow"
-              src="https://assets.codepen.io/3537853/arrow.svg"
-              draggable="false"
-              className="w-1/2 h-1/2 absolute opacity-0"
-              alt="Arrow"
-            />
-          </button>
+          
+          <SpeechToText setQuestion={setQuestion} />
         </div>
       )}
 
