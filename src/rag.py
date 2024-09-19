@@ -21,6 +21,8 @@ from lingua import Language, LanguageDetectorBuilder
 import torch
 import logging
 import os
+from chromadb.config import Settings
+
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
@@ -55,7 +57,10 @@ embeddings = OllamaEmbeddings(model="nomic-embed-text", show_progress=True)
 
 # Set up Chroma vector store
 persist_directory = './db_qsar_bdii'
-vectorstore = Chroma(persist_directory=persist_directory, embedding_function=embeddings)
+chroma_settings = Settings(anonymized_telemetry=False)
+vectorstore = Chroma(persist_directory=persist_directory, 
+                     embedding_function=embeddings,
+                     client_settings=chroma_settings)
 retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 5})
 
 # Check vectorstore collection count
