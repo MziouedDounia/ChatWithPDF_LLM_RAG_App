@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import "../styles.css";
 import BotMessage from "./BotMessage"; // Import BotMessage component
 import Modal from "./Modal"; // Import Modal component
+import SpeechToText from "./SpeechToText";
 
 export const TypingBox = ({ onVisemeData, sessionId, userData }) => {
   const [question, setQuestion] = useState("");
