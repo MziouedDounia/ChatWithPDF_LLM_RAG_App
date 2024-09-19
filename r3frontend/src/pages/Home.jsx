@@ -3,8 +3,8 @@ import { Canvas } from "@react-three/fiber";
 import { Experience } from "../components/Experience";
 import { TypingBox } from "../components/TypingBox";
 import "../../src/styles.css";
-import {Leva} from Leva;
-const Home = () => {
+
+const Home = ({ sessionId, userData }) => {
   const [visemeData, setVisemeData] = useState({ viseme: '', time: 0 });
 
   const handleVisemeData = (viseme, time) => {
