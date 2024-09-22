@@ -49,7 +49,7 @@ if os.environ["LANGCHAIN_API_KEY"] is None:
 # Initialize the LLM with ChatOllama
 local_model = os.getenv("MODEL_NAME") 
 logger.info(f"local model est : {local_model}")
-llm = ChatOllama(model=local_model)
+llm = ChatOllama(model="qwen2:1.5b")
 parser = StrOutputParser()
 
 # Load embedding model
@@ -57,11 +57,18 @@ embeddings = OllamaEmbeddings(model="nomic-embed-text", show_progress=True)
 
 # Set up Chroma vector store
 persist_directory = './db_qsar_bdii'
-chroma_settings = Settings(anonymized_telemetry=False)
-vectorstore = Chroma(persist_directory=persist_directory, 
-                     embedding_function=embeddings,
-                     client_settings=chroma_settings)
+vectorstore = Chroma(
+        persist_directory=persist_directory,
+        embedding_function=embeddings)
 retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 5})
+# retriever = vectorstore.as_retriever(
+#         search_type="mmr",  # Maximum Marginal Relevance
+#         search_kwargs={
+#             "k": 5,
+#             "fetch_k": 2 * 5,  # Récupère plus de documents pour la diversité
+#             "lambda_mult": 0.5  # Équilibre entre pertinence (1.0) et diversité (0.0)
+#         }
+#     )
 
 # Check vectorstore collection count
 print(vectorstore._collection.count())
@@ -156,36 +163,41 @@ def classify_query(question: str, chat_history) -> bool:
 
     # Create the classification prompt
     classification_prompt = (
-    f"You are an assistant specializing in the biography of Ahmed el-Mansour Eddahbi and QSAR BDII in Marrakech.\n"
+    f"You are an assistant specializing in the biography of Ahmed el-Mansour Eddahbi, QSAR BDII (also known as El Badi Palace) in Marrakech, and the history of Marrakech.\n"
     f"Please review the following conversation history and current question to determine if document retrieval (RAG) is necessary to answer the question accurately.\n\n"
     f"Conversation History:\n{formatted_chat_history}\n"
     f"Current Question: {question}\n\n"
-    f"Based on the information provided, answer 'yes' if document retrieval is required to answer the question, or 'no' if the LLM can directly answer it. Consider whether the question is factual, requires specific knowledge about Ahmed el-Mansour Eddahbi or QSAR BDII, or involves complex reasoning.\n"
-    )
-
+    f"Based on the information provided, answer ONLY 'yes' if document retrieval is required to answer the question, or 'no' if the LLM can directly answer it. Consider whether the question is factual, requires specific knowledge about Ahmed el-Mansour Eddahbi, QSAR BDII, or the history of Marrakech, or involves complex reasoning. Your response must be ONLY 'yes' or 'no' without any additional explanation.\n"
+)
     try:
-        # Invoke the LLM to classify the query
         response = llm.invoke(classification_prompt)
-        
-        # Validate and process the response
-        if isinstance(response, dict) and "answer" in response:
-            answer = response["answer"].strip().lower()
-            logging.info(f"Classification response: {answer}")
-            if answer.startswith("yes"):
-                return True
-            elif answer.startswith("no"):
-                return False
-            else:
-                logging.warning(f"Unexpected classification response: {answer}. Defaulting to retrieval.")
-                return True
-        else:
-            logging.error(f"Invalid or missing response from LLM: {response}")
-            return True  # Default to retrieval if response is invalid
-        
-    except Exception as e:
-        logging.error(f"Error invoking LLM for classification: {e}")
-        return True 
 
+        logging.info(f"classification from ll; response: {response}")
+
+        # Handle different response types
+        if isinstance(response, AIMessage):
+            answer = response.content.strip().lower()
+        elif isinstance(response, str):
+            answer = response.strip().lower()
+        elif isinstance(response, dict):
+            answer = response.get("answer", "").strip().lower()
+        else:
+            raise ValueError(f"Unexpected response type: {type(response)}")
+        
+        logging.info(f"Classification response: {answer}")
+
+        if 'yes' in answer:
+            return True
+        elif 'no' in answer:
+            return False
+        else:
+            logging.warning(f"Unexpected response: {answer}. Defaulting to retrieval.")
+            return True
+
+    except Exception as e:
+        logging.error(f"Classification error: {e}")
+        return True
+    
 # Helper function to format chat history as a string
 def format_chat_history(messages: List[HumanMessage | AIMessage]) -> str:
     formatted_history = ""
@@ -424,10 +436,11 @@ async def get_answer_and_docs(question: str, session_id: str) -> Tuple[str, str]
 
         chat_history = get_session_history(session_id)
 
-        try:
-            needs_retrieval = await asyncio.to_thread(classify_query, question_en, chat_history.messages)
-        except Exception as e:
-            logger.warning(f"Query classification failed: {str(e)}. Defaulting to retrieval.")
+        try:    
+            needs_retrieval = await asyncio.to_thread(classify_query, question_en, chat_history.messages)    
+            logger.info(f"Classification result: {'retrieval needed' if needs_retrieval else 'no retrieval needed'}")
+        except Exception as e:    
+            logger.warning(f"Query classification failed: {str(e)}. Defaulting to retrieval.")    
             needs_retrieval = True
 
         if needs_retrieval:
@@ -436,7 +449,10 @@ async def get_answer_and_docs(question: str, session_id: str) -> Tuple[str, str]
                 {"input": question_en},
                 config={"configurable": {"session_id": session_id}}
             )
+            logger.info(f"response received from rag llm is : {response}")
+            # answer = response.content if isinstance(response, AIMessage) else "I'm sorry, I couldn't find an answer."
             answer = response.get('answer', "I'm sorry, I couldn't find an answer.")
+
             logger.info(f"RAG answer: {answer}")
         else:
             logger.info("Using direct LLM response")
@@ -444,7 +460,9 @@ async def get_answer_and_docs(question: str, session_id: str) -> Tuple[str, str]
                 {"input": question_en},
                 config={"configurable": {"session_id": session_id}}
             )
-            answer = response.get('answer', "I'm sorry, I couldn't generate an answer.")
+            logger.info(f"response received from llm without rag is : {response}")
+            answer = response.content if isinstance(response, AIMessage) else "I'm sorry, I couldn't find an answer."
+            # answer = response.get('answer', "I'm sorry, I couldn't find an answer.")
             logger.info(f"LLM answer: {answer}")
 
         answer_content = answer.strip()
