@@ -29,7 +29,7 @@ console.log('EMAIL_USER:', process.env.EMAIL_USER);
 console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? '[REDACTED]' : 'Not set');
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = 5000;
 
 // Middleware
 app.use(bodyParser.json());

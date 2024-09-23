@@ -169,11 +169,11 @@ export default function BotMessage({ fetchMessage, onVisemeData }) {
   return (
     <div className="message-container">
       <div className="bot-message">{isLoading ? "..." : message.text}</div>
-      <div className="language-info">Detected language: {message.language}</div>
+      {/* <div className="language-info">Detected language: {message.language}</div>
       <div className="voice-info">
         Selected voice: {selectedVoice ? `${selectedVoice.name} (${selectedVoice.lang})` : "None"}
       </div>
-      <div className="voice-count">Available voices: {availableVoices.length}</div>
+      <div className="voice-count">Available voices: {availableVoices.length}</div> */}
     </div>
   );
 }
