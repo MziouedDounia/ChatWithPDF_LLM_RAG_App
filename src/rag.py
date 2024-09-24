@@ -51,8 +51,8 @@ logger.info(f"local model est : {local_model}")
 llm = ChatOllama(model=local_model)
 llm_verification=ChatOllama(
     model=local_model,
-    temperature=0.1,  # Réduire pour des réponses plus déterministes
-    top_p=0.95,       # Ajuster pour contrôler la diversité des réponses
+    temperature=0,  # Réduire pour des réponses plus déterministes
+    # top_p=0.95,       # Ajuster pour contrôler la diversité des réponses
 )
 parser = StrOutputParser()
 
@@ -65,6 +65,9 @@ vectorstore = Chroma(
         persist_directory=persist_directory,
         embedding_function=embeddings)
 retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 5})
+# retriever_from_llm = MultiQueryRetriever.from_llm(
+#     retriever=vectordb.as_retriever(), llm=llm
+# )
 # retriever = vectorstore.as_retriever(
 #         search_type="mmr",  # Maximum Marginal Relevance
 #         search_kwargs={
