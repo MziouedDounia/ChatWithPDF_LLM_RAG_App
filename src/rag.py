@@ -4,7 +4,6 @@ from langchain_community.chat_models import ChatOllama
 from langchain_core.output_parsers import StrOutputParser
 from langchain_chroma import Chroma
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.memory import ConversationBufferMemory
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
@@ -21,7 +20,7 @@ from lingua import Language, LanguageDetectorBuilder
 import torch
 import logging
 import os
-from chromadb.config import Settings
+import re
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -40,7 +39,7 @@ else:
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["LANGCHAIN_ENDPOINT"] = "https://api.langchain.plus/"
 os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGCHAIN_API_KEY")
-os.environ["LANGCHAIN_PROJECT"] = "rag qsar bdii"
+os.environ["LANGCHAIN_PROJECT"] = "test soutenance"
 
 # Ensure API key is set
 if os.environ["LANGCHAIN_API_KEY"] is None:
@@ -49,7 +48,12 @@ if os.environ["LANGCHAIN_API_KEY"] is None:
 # Initialize the LLM with ChatOllama
 local_model = os.getenv("MODEL_NAME") 
 logger.info(f"local model est : {local_model}")
-llm = ChatOllama(model="qwen2:1.5b")
+llm = ChatOllama(model=local_model)
+llm_verification=ChatOllama(
+    model=local_model,
+    temperature=0.1,  # Réduire pour des réponses plus déterministes
+    top_p=0.95,       # Ajuster pour contrôler la diversité des réponses
+)
 parser = StrOutputParser()
 
 # Load embedding model
@@ -80,6 +84,21 @@ def get_session_history(session_id: str) -> BaseChatMessageHistory:
         store[session_id] = ChatMessageHistory()
     return store[session_id]
 
+welcome_template = ChatPromptTemplate.from_messages([
+        ("system", """You are Ahmed el-Mansour Eddahbi, the historical Sultan of Morocco.\nGreet the visitor warmly and welcome them to QSAR BDII in Marrakech.\nKeep your response friendly, warm, and concise, no longer than two sentences."""),
+        MessagesPlaceholder(variable_name="chat_history"),
+        ("human", "Hello, my name is {name}")
+])
+        
+welcome_chain = welcome_template | llm
+        
+conversational_welcome_chain = RunnableWithMessageHistory(
+    welcome_chain,
+    get_session_history,
+    input_messages_key="name",
+    history_messages_key="chat_history",
+    output_messages_key="answer",
+        )
 
 prompt_template = ChatPromptTemplate.from_messages([
     ("system", """You are Ahmed el-Mansour Eddahbi, the historical Sultan of Morocco. 
@@ -160,17 +179,27 @@ def classify_query(question: str, chat_history) -> bool:
 
     # Format the chat history for context
     formatted_chat_history = format_chat_history(chat_history) if chat_history else "No previous conversation history."
-
     # Create the classification prompt
-    classification_prompt = (
-    f"You are an assistant specializing in the biography of Ahmed el-Mansour Eddahbi, QSAR BDII (also known as El Badi Palace) in Marrakech, and the history of Marrakech.\n"
-    f"Please review the following conversation history and current question to determine if document retrieval (RAG) is necessary to answer the question accurately.\n\n"
-    f"Conversation History:\n{formatted_chat_history}\n"
-    f"Current Question: {question}\n\n"
-    f"Based on the information provided, answer ONLY 'yes' if document retrieval is required to answer the question, or 'no' if the LLM can directly answer it. Consider whether the question is factual, requires specific knowledge about Ahmed el-Mansour Eddahbi, QSAR BDII, or the history of Marrakech, or involves complex reasoning. Your response must be ONLY 'yes' or 'no' without any additional explanation.\n"
-)
+    classification_prompt = f"""Expert on Ahmed el-Mansour Eddahbi, QSAR BDII (El Badi Palace), Marrakech, and Morocco:
+
+History: {formatted_chat_history}
+
+Question: {question}
+
+Respond 'yes' if:
+1. Question relates to Ahmed el-Mansour Eddahbi, QSAR BDII, Marrakech, Morocco, or their history
+2. Answer is not fully in the conversation history
+
+Respond 'no' if:
+1. Question is unrelated to these topics
+2. Complete answer is in the conversation history
+
+If unsure, respond 'yes'.
+
+Classification:"""
+
     try:
-        response = llm.invoke(classification_prompt)
+        response = llm_verification.invoke(classification_prompt)
 
         logging.info(f"classification from ll; response: {response}")
 
@@ -344,8 +373,14 @@ async def verify_translation(original_text: str, translated_text: str, source_la
 Original text ({source_lang_code}): "{original_text}"
 Translated text ({target_lang_code}): "{translated_text}"
 
-Is this translation accurate and conveys the same meaning? Answer with 'Yes' if it's correct, or 'No' if it's incorrect."""
+Key terms to consider:
+- QSAR BDII | قصر البديع | El Badi Palace
+- Ahmed el-Mansour Eddahbi | أحمد المنصور الذهبي
+- Marrakech | مراكش
+- Morocco | المغرب
 
+Is this translation accurate and conveys the same meaning, especially regarding the key terms? Answer only with 'Yes' if it's correct, or 'No' if it's incorrect. Do not provide any additional text or explanations."""
+   
     try:
         response = await llm.ainvoke(prompt)
         answer = response.content if isinstance(response, AIMessage) else str(response)
@@ -360,7 +395,17 @@ async def translate_with_llm(text: str, target_lang: str) -> str:
         logger.warning(f"La traduction LLM n'est pas prise en charge pour la langue cible {target_lang_code}.")
         return "LLM translation not supported for this language"
 
-    prompt = f"Translate the following text to {target_lang_code}: \"{text}\""
+    prompt = f"""Translate the following text to {target_lang_code}. Follow these rules:
+1. Provide only the translation, without any additional text or explanations.
+2. Use the following key terms and their translations:
+   - QSAR BDII | قصر البديع | El Badi Palace
+   - Ahmed el-Mansour Eddahbi | أحمد المنصور الذهبي
+   - Marrakech | مراكش
+   - Morocco | المغرب
+
+Text to translate: "{text}"
+
+Translation:"""
     
     try:
         response = await llm.ainvoke(prompt)
@@ -422,7 +467,23 @@ async def translate_with_verification(text: str, target_lang: str) -> str:
         return f"Translation failed: {str(e)}"
 
 async def get_answer_and_docs(question: str, session_id: str) -> Tuple[str, str]:
+    # Check if the message starts with "Hello, my name is"
+    name_match = re.match(r"Hello, my name is (.*)", question, re.IGNORECASE)
+
     source_language = "eng_Latn"
+
+    if name_match:
+        visitor_name = name_match.group(1)
+
+        response = await conversational_welcome_chain.ainvoke(
+            {"name": visitor_name},
+            config={"configurable": {"session_id": session_id}}
+        )
+        logger.info(f"Welcome response received from llm: {response}")
+        answer = response.content if isinstance(response, AIMessage) else f"Welcome to QSAR BDII, {visitor_name}!"
+        return answer, source_language
+
+    # If it's not a welcome message, proceed with the original logic
     try:
         source_language = detector.detect_language(question)
         logger.info(f"Detected language: {source_language}")

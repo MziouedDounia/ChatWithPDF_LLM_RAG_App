@@ -1,5 +1,5 @@
 import { getChatbotResponse } from "../hooks/ChatBotAPI";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect,useRef } from "react";
 import "../styles.css";
 import BotMessage from "./BotMessage"; // Import BotMessage component
 import Modal from "./Modal"; // Import Modal component
@@ -12,11 +12,36 @@ export const TypingBox = ({ onVisemeData, sessionId, userData }) => {
   const [recording, setRecording] = useState(false);
   const [history, setHistory] = useState([]); // State to store history of questions and answers
   const [isModalOpen, setIsModalOpen] = useState(false); // State to control modal visibility
+  const initialMessageSent = useRef(false);
 
   useEffect(() => {
-    // You can use userData here if needed
     console.log('User data:', userData);
-  }, [userData]);
+    if (sessionId && !initialMessageSent.current) {
+      if (userData && userData.name) {
+        sendInitialMessage();
+      } else {
+        const defaultMessage = "Hi, welcome to Qsar el Badi!";
+        setResponse({ text: defaultMessage, language: "eng_Latn" });
+        setHistory([{ response: defaultMessage }]);
+      }
+      initialMessageSent.current = true;
+    }
+  }, [userData, sessionId]);
+
+  const sendInitialMessage = async () => {
+    setLoading(true);
+    const initialMessage = `Hello, my name is ${userData.name}`;
+    try {
+      const { answer, language } = await getChatbotResponse(initialMessage, sessionId);
+      
+      setResponse({ text: answer, language: language });
+      setHistory([{ response: answer }]);
+    } catch (error) {
+      handleError(error, true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Function to handle chatbot response fetching
   const ask = async () => {
@@ -33,28 +58,35 @@ export const TypingBox = ({ onVisemeData, sessionId, userData }) => {
       const newResponse = { text: answer, language: language };
       setResponse(newResponse);
       
-      setHistory(prev => [...prev, { question, response: answer, language: language }]);
+      setHistory(prev => [...prev, { question, response: answer }]);
     } catch (error) {
-      console.error("Error fetching chatbot response:", error);
-      
-      if (error.response && error.response.status === 422) {
-        // Session invalid or expired
-        localStorage.removeItem('sessionId');
-        localStorage.removeItem('userData');
-        setResponse({ text: "Your session has expired. The page will refresh.", language: "eng_Latn" });
-        setTimeout(() => window.location.reload(), 3000); // Delay reload for 3 seconds to show message
-      } else {
-        // General error
-        setResponse({ 
-          text: "I'm sorry, I couldn't process that request. Please try again.", 
-          language: "eng_Latn" 
-        });
-      }
+      handleError(error, false);
     } finally {
       setLoading(false);
       setQuestion("");
     }
   };
+
+  const handleError = (error, isInitialMessage) => {
+    console.error("Error fetching chatbot response:", error);
+    
+    if (error.response && error.response.status === 422) {
+      localStorage.removeItem('sessionId');
+      localStorage.removeItem('userData');
+      setResponse({ text: "Your session has expired. The page will refresh.", language: "eng_Latn" });
+      setTimeout(() => window.location.reload(), 3000);
+    } else if (isInitialMessage) {
+      const welcomeMessage = `Hello ${userData?.name || 'Amine'}, welcome to Qsar el Badi!`;
+      setResponse({ text: welcomeMessage, language: "eng_Latn" });
+      setHistory([{ response: welcomeMessage }]);
+    } else {
+      setResponse({ 
+        text: "I'm sorry, I couldn't process that request. Please try again.", 
+        language: "eng_Latn" 
+      });
+    }
+  };
+
 
   const startRecording = async () => {
     setRecording(true);
@@ -138,7 +170,7 @@ export const TypingBox = ({ onVisemeData, sessionId, userData }) => {
       )}
 
       {/* Modal for History */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} messages={history} />
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} messages={history} userData={userData}/>
     </div>
   );
 };
