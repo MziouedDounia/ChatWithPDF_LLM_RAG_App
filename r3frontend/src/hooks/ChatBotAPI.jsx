@@ -45,7 +45,6 @@ export const welcomeUser = async (name, sessionId) => {
     });
     // Extrayez le message de bienvenue et la langue détectée de la réponse
     const { welcome_message } = response.data;
-    console.log("message received in chatbot api is ",welcome_message);
     return { message: welcome_message };
   } catch (error) {
     console.error("Error fetching welcome message:", error);

@@ -39,7 +39,7 @@ else:
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["LANGCHAIN_ENDPOINT"] = "https://api.langchain.plus/"
 os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGCHAIN_API_KEY")
-os.environ["LANGCHAIN_PROJECT"] = "test soutenance"
+os.environ["LANGCHAIN_PROJECT"] = "demo soutenance"
 
 # Ensure API key is set
 if os.environ["LANGCHAIN_API_KEY"] is None:
@@ -89,7 +89,7 @@ def get_session_history(session_id: str) -> BaseChatMessageHistory:
 
 welcome_template = ChatPromptTemplate.from_messages([
     ("system", """You are Ahmed el-Mansour Eddahbi, the historical Sultan of Morocco.
-Greet the visitor warmly and welcome them to QSAR BDII in Marrakech.
+Greet the visitor warmly and welcome them to El Badi Palace in Marrakech.
 If a name is provided, use it in your greeting. If no name is provided, use a general greeting.
 Keep your response friendly, warm, and concise, no longer than two sentences."""),
     MessagesPlaceholder(variable_name="chat_history"),
@@ -199,8 +199,15 @@ async def needs_rag(query: str, chat_history: list) -> bool:
         "query": query
     })
     
-    return response.content.strip().lower() == 'true'
+    raw_response = response.content.strip().lower()
+    logger.info(f"Raw response from needs_rag: {raw_response}")
     
+    needs_retrieval = raw_response in ['true', 'yes']
+    logger.info(f"Interpreted needs_retrieval: {needs_retrieval}")
+    
+    return needs_retrieval
+
+  
 # Helper function to format chat history as a string
 def format_chat_history(messages: List[HumanMessage | AIMessage]) -> str:
     formatted_history = ""
