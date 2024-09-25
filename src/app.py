@@ -1,5 +1,7 @@
 import logging
-from fastapi import FastAPI, HTTPException
+from typing import Optional
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -8,14 +10,17 @@ import uuid
 import asyncio
 from contextlib import asynccontextmanager
 
-from src.rag import get_answer_and_docs, DualLanguageDetector
+from src.rag import get_answer_and_docs, DualLanguageDetector, welcomeUser
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # In-memory session store to hold session metadata (not chat history)
 session_store = {}
 
-# Session expiration time (e.g., 1 hour)
-session_expiration_time = 3600  # 1 hour
+# Session expiration time (24 hours)
+session_expiration_time = 24 * 60 * 60  # 24 hours
 
 # Initialize the language detector
 detector = DualLanguageDetector()
@@ -40,7 +45,7 @@ async def cleanup_sessions():
 async def periodic_cleanup():
     while True:
         await cleanup_sessions()
-        await asyncio.sleep(4320)  # Run every 60 seconds (you can adjust this)
+        await asyncio.sleep(7200)  # Run every 2hour
 
 # Lifespan context manager
 @asynccontextmanager
@@ -78,11 +83,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Pydantic model for incoming messages
+# Pydantic models
 class Message(BaseModel):
     message: str
     session_id: str  # Session ID is now required
 
+
+class WelcomeRequest(BaseModel):
+    session_id: str
+    name: Optional[str] = None
+    
 # Function to get or create session metadata (not chat history)
 def get_session_metadata(session_id: str):
     if session_id not in session_store:
@@ -115,28 +125,65 @@ async def chat(message: Message):
 
         # Prepare the response content
         response_content = {
-            "question": message.message,
             "answer": answer,
             "detected_language": detected_language,
-            "session_id": message.session_id
         }
 
         return JSONResponse(content=response_content, status_code=200)
 
     except Exception as e:
-        # Log the error
         logger.error(f"Error in chat endpoint: {str(e)}", exc_info=True)
         
-        # Return a generic error message to the client
         error_response = {
             "error": "An error occurred while processing your request.",
             "session_id": message.session_id
         }
         return JSONResponse(content=error_response, status_code=500)
 
+@app.post("/welcome_user")
+async def welcome_user(request: WelcomeRequest):
+    logger.info(f"Raw request data: {request.dict()}")
+    logger.info(f"Received welcome_user request with session_id: {request.session_id} and name: {request.name}")
+    logger.info(f"Received welcome_user request with session_id: {request.session_id} and name: {request.name}")
+    if request.session_id not in session_store:
+        logger.warning(f"Session not found: {request.session_id}")
+        raise HTTPException(status_code=404, detail="Session not found.")
+    
+    # Update last active timestamp for session
+    session_metadata = get_session_metadata(request.session_id)
+    session_metadata['last_active'] = time.time()
+    
+    try:
+        name = request.name if request.name and request.name.strip() else None
+        welcome_message = await welcomeUser(name, request.session_id)
+        logger.info(f"Generated welcome message: {welcome_message}")
+        
+        return JSONResponse(content={
+            "welcome_message": welcome_message
+        }, status_code=200)
+    
+    except Exception as e:
+        logger.error(f"Error in welcome_user endpoint: {str(e)}", exc_info=True)
+        
+        error_response = {
+            "error": "An error occurred while generating the welcome message.",
+            "session_id": request.session_id
+        }
+        return JSONResponse(content=error_response, status_code=500)
+    
 # API Endpoint to retrieve session metadata (this doesn't return chat history)
 @app.get("/session_metadata/{session_id}")
 async def get_session_info(session_id: str):
     if session_id not in session_store:
         raise HTTPException(status_code=404, detail="Session not found.")
     return session_store[session_id]
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    body = await request.body()
+    logger.error(f"Validation error. Request body: {body.decode()}")
+    logger.error(f"Validation error details: {exc.errors()}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors(), "body": exc.body},
+    )

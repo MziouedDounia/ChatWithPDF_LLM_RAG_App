@@ -88,20 +88,24 @@ def get_session_history(session_id: str) -> BaseChatMessageHistory:
     return store[session_id]
 
 welcome_template = ChatPromptTemplate.from_messages([
-        ("system", """You are Ahmed el-Mansour Eddahbi, the historical Sultan of Morocco.\nGreet the visitor warmly and welcome them to QSAR BDII in Marrakech.\nKeep your response friendly, warm, and concise, no longer than two sentences."""),
-        MessagesPlaceholder(variable_name="chat_history"),
-        ("human", "Hello, my name is {name}")
+    ("system", """You are Ahmed el-Mansour Eddahbi, the historical Sultan of Morocco.
+Greet the visitor warmly and welcome them to QSAR BDII in Marrakech.
+If a name is provided, use it in your greeting. If no name is provided, use a general greeting.
+Keep your response friendly, warm, and concise, no longer than two sentences."""),
+    MessagesPlaceholder(variable_name="chat_history"),
+    ("human", "{greeting}")
 ])
-        
+
 welcome_chain = welcome_template | llm
-        
+
 conversational_welcome_chain = RunnableWithMessageHistory(
     welcome_chain,
     get_session_history,
-    input_messages_key="name",
+    input_messages_key="greeting",
     history_messages_key="chat_history",
     output_messages_key="answer",
-        )
+)
+
 
 prompt_template = ChatPromptTemplate.from_messages([
     ("system", """You are Ahmed el-Mansour Eddahbi, the historical Sultan of Morocco. 
@@ -177,58 +181,25 @@ model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
 
-# LLM-based Query Classification for Ahmed el-Mansour Eddahbi and QSAR BDII
-def classify_query(question: str, chat_history) -> bool:    
-
-    # Format the chat history for context
-    formatted_chat_history = format_chat_history(chat_history) if chat_history else "No previous conversation history."
-    # Create the classification prompt
-    classification_prompt = f"""Expert on Ahmed el-Mansour Eddahbi, QSAR BDII (El Badi Palace), Marrakech, and Morocco:
-
-History: {formatted_chat_history}
-
-Question: {question}
-
-Respond 'yes' if:
-1. Question relates to Ahmed el-Mansour Eddahbi, QSAR BDII, Marrakech, Morocco, or their history
-2. Answer is not fully in the conversation history
-
-Respond 'no' if:
-1. Question is unrelated to these topics
-2. Complete answer is in the conversation history
-
-If unsure, respond 'yes'.
-
-Classification:"""
-
-    try:
-        response = llm_verification.invoke(classification_prompt)
-
-        logging.info(f"classification from ll; response: {response}")
-
-        # Handle different response types
-        if isinstance(response, AIMessage):
-            answer = response.content.strip().lower()
-        elif isinstance(response, str):
-            answer = response.strip().lower()
-        elif isinstance(response, dict):
-            answer = response.get("answer", "").strip().lower()
-        else:
-            raise ValueError(f"Unexpected response type: {type(response)}")
-        
-        logging.info(f"Classification response: {answer}")
-
-        if 'yes' in answer:
-            return True
-        elif 'no' in answer:
-            return False
-        else:
-            logging.warning(f"Unexpected response: {answer}. Defaulting to retrieval.")
-            return True
-
-    except Exception as e:
-        logging.error(f"Classification error: {e}")
-        return True
+async def needs_rag(query: str, chat_history: list) -> bool:
+    analysis_prompt = ChatPromptTemplate.from_messages([
+        ("system", """Analyze the question in the context of the conversation history and determine if RAG (Retrieval-Augmented Generation) is needed:
+        1. If the question can be fully answered from the conversation history, respond with 'False'.
+        2. If the question is related to Ahmed el-Mansour Eddahbi, Marrakech, or the history of Morocco during his reign and requires additional information, respond with 'True'.
+        3. If the question is off-topic or general, respond with 'False'.
+        Respond only with 'True' or 'False'."""),
+        MessagesPlaceholder(variable_name="chat_history"),
+        ("human", "{query}")
+    ])
+    
+    analysis_chain = analysis_prompt | llm
+    
+    response = await analysis_chain.ainvoke({
+        "chat_history": chat_history,
+        "query": query
+    })
+    
+    return response.content.strip().lower() == 'true'
     
 # Helper function to format chat history as a string
 def format_chat_history(messages: List[HumanMessage | AIMessage]) -> str:
@@ -470,23 +441,8 @@ async def translate_with_verification(text: str, target_lang: str) -> str:
         return f"Translation failed: {str(e)}"
 
 async def get_answer_and_docs(question: str, session_id: str) -> Tuple[str, str]:
-    # Check if the message starts with "Hello, my name is"
-    name_match = re.match(r"Hello, my name is (.*)", question, re.IGNORECASE)
 
     source_language = "eng_Latn"
-
-    if name_match:
-        visitor_name = name_match.group(1)
-
-        response = await conversational_welcome_chain.ainvoke(
-            {"name": visitor_name},
-            config={"configurable": {"session_id": session_id}}
-        )
-        logger.info(f"Welcome response received from llm: {response}")
-        answer = response.content if isinstance(response, AIMessage) else f"Welcome to QSAR BDII, {visitor_name}!"
-        return answer, source_language
-
-    # If it's not a welcome message, proceed with the original logic
     try:
         source_language = detector.detect_language(question)
         logger.info(f"Detected language: {source_language}")
@@ -500,11 +456,11 @@ async def get_answer_and_docs(question: str, session_id: str) -> Tuple[str, str]
 
         chat_history = get_session_history(session_id)
 
-        try:    
-            needs_retrieval = await asyncio.to_thread(classify_query, question_en, chat_history.messages)    
+        try:
+            needs_retrieval = await needs_rag(question_en, chat_history.messages)
             logger.info(f"Classification result: {'retrieval needed' if needs_retrieval else 'no retrieval needed'}")
-        except Exception as e:    
-            logger.warning(f"Query classification failed: {str(e)}. Defaulting to retrieval.")    
+        except Exception as e:
+            logger.warning(f"Query classification failed: {str(e)}. Defaulting to retrieval.")
             needs_retrieval = True
 
         if needs_retrieval:
@@ -538,9 +494,6 @@ async def get_answer_and_docs(question: str, session_id: str) -> Tuple[str, str]
             if answer_content.startswith("Translation failed"):
                 return "I have an answer, but the translation back to your language encountered an issue. Would you like the answer in English instead?", source_language
 
-            if len(answer_content) < len(answer) * 0.5:
-                logger.warning("Translation appears incomplete. Falling back to English.")
-                return answer.strip(), "eng_Latn"
 
         logger.info(f"Final answer: {answer_content}")
         return answer_content, source_language
@@ -549,6 +502,57 @@ async def get_answer_and_docs(question: str, session_id: str) -> Tuple[str, str]
         logger.error(f"Error in get_answer_and_docs: {str(e)}", exc_info=True)
         return f"An error occurred while processing the question: {str(e)}", source_language
 
+async def welcomeUser(name: str | None, session_id: str) -> str:
+    try:
+        if name:
+            greeting = f"Hello, my name is {name}. I'm visiting QSAR BDII."
+        else:
+            greeting = "Hello, I'm a visitor to QSAR BDII."
+
+        response = await conversational_welcome_chain.ainvoke(
+            {"greeting": greeting},
+            config={"configurable": {"session_id": session_id}}
+        )
+
+        logger.info(f"Raw response from welcome chain: {response}")
+
+        # Extract the welcome message from the response
+        if isinstance(response, dict):
+            if 'answer' in response:
+                welcome_message = response['answer']
+            elif 'content' in response:
+                welcome_message = response['content']
+            else:
+                welcome_message = str(response)
+        elif isinstance(response, AIMessage):
+            welcome_message = response.content
+        else:
+            welcome_message = str(response)
+
+        # If the welcome_message is still a string representation of a dict, evaluate it
+        if isinstance(welcome_message, str) and welcome_message.startswith("content="):
+            import ast
+            try:
+                welcome_dict = ast.literal_eval(welcome_message)
+                welcome_message = welcome_dict.get("content", welcome_message)
+            except:
+                pass  # If evaluation fails, keep the original string
+
+        # Remove any remaining quotes and extra whitespace
+        welcome_message = welcome_message.strip("'").strip('"').strip()
+
+        logger.info(f"Extracted welcome message: {welcome_message}")
+        # Manually add the welcome message to the session history
+        chat_history = get_session_history(session_id)
+        chat_history.add_user_message(greeting)
+        chat_history.add_ai_message(welcome_message)
+        logger.info(f"Welcome message added to session history for session_id: {session_id}")
+        logger.info(f"Updated chat history: {chat_history.messages}")
+        return welcome_message
+    except Exception as e:
+        logger.error(f"Error in welcomeUser function: {str(e)}", exc_info=True)
+        return "Welcome to QSAR BDII in Marrakech. We apologize for any inconvenience."
+    
 
 # Initialisation globale du détecteur
 detector = DualLanguageDetector()

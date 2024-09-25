@@ -1,5 +1,5 @@
-import { getChatbotResponse } from "../hooks/ChatBotAPI";
-import React, { useState, useEffect,useRef } from "react";
+import { getChatbotResponse, welcomeUser } from "../hooks/ChatBotAPI";
+import React, { useState, useEffect, useRef } from "react";
 import "../styles.css";
 import BotMessage from "./BotMessage"; // Import BotMessage component
 import Modal from "./Modal"; // Import Modal component
@@ -17,25 +17,22 @@ export const TypingBox = ({ onVisemeData, sessionId, userData }) => {
   useEffect(() => {
     console.log('User data:', userData);
     if (sessionId && !initialMessageSent.current) {
-      if (userData && userData.name) {
-        sendInitialMessage();
-      } else {
-        const defaultMessage = "Hi, welcome to Qsar el Badi!";
-        setResponse({ text: defaultMessage, language: "eng_Latn" });
-        setHistory([{ response: defaultMessage }]);
-      }
+      sendWelcomeMessage();
       initialMessageSent.current = true;
     }
   }, [userData, sessionId]);
 
-  const sendInitialMessage = async () => {
+  const sendWelcomeMessage = async () => {
     setLoading(true);
-    const initialMessage = `Hello, my name is ${userData.name}`;
     try {
-      const { answer, language } = await getChatbotResponse(initialMessage, sessionId);
+      const result = await welcomeUser(userData?.name || undefined, sessionId);
+      console.log("message reçu dans typingbox de welcome ", result);
       
-      setResponse({ text: answer, language: language });
-      setHistory([{ response: answer }]);
+      // Extraire le message de l'objet retourné
+      const welcomeMessage = result.message;
+      
+      setResponse({ text: welcomeMessage, language: "eng_Latn" });
+      setHistory([{ response: welcomeMessage }]);
     } catch (error) {
       handleError(error, true);
     } finally {
@@ -43,7 +40,6 @@ export const TypingBox = ({ onVisemeData, sessionId, userData }) => {
     }
   };
 
-  // Function to handle chatbot response fetching
   const ask = async () => {
     if (!sessionId) {
       console.error('No active session');
@@ -68,7 +64,7 @@ export const TypingBox = ({ onVisemeData, sessionId, userData }) => {
   };
 
   const handleError = (error, isInitialMessage) => {
-    console.error("Error fetching chatbot response:", error);
+    console.error("Error fetching response:", error);
     
     if (error.response && error.response.status === 422) {
       localStorage.removeItem('sessionId');
@@ -76,7 +72,7 @@ export const TypingBox = ({ onVisemeData, sessionId, userData }) => {
       setResponse({ text: "Your session has expired. The page will refresh.", language: "eng_Latn" });
       setTimeout(() => window.location.reload(), 3000);
     } else if (isInitialMessage) {
-      const welcomeMessage = `Hello ${userData?.name || 'Amine'}, welcome to Qsar el Badi!`;
+      const welcomeMessage = `Welcome to Qsar el Badi! How may I assist you today?`;
       setResponse({ text: welcomeMessage, language: "eng_Latn" });
       setHistory([{ response: welcomeMessage }]);
     } else {
@@ -86,7 +82,6 @@ export const TypingBox = ({ onVisemeData, sessionId, userData }) => {
       });
     }
   };
-
 
   const startRecording = async () => {
     setRecording(true);
