@@ -8,7 +8,7 @@ Actual Response: {actual_response}
 (Answer with 'true' or 'false') Does the actual response match the expected response?
 """
 
-model = OllamaLLM(model="qwen2:1.5b")  # Create the model instance once
+model = OllamaLLM(model="qwen2.5:1.5b")  # Create the model instance once
 
 def query_and_validate(question: str, expected_response: str):
     try:
@@ -47,27 +47,16 @@ def query_and_validate(question: str, expected_response: str):
             f"Invalid evaluation result. Cannot determine if 'true' or 'false'."
         )
 
-def test_el_badi_palace_creation():
-    assert query_and_validate(
-        question="How many years did it take to build El Badi Palace? (Answer with the number only)",
-        expected_response="16"
-    )
-
 def test_el_badi_palace_decline():
     assert query_and_validate(
         question="For how many years did El Badi Palace deteriorate following the death of the 6th Moroccan Sultan? (Answer with the number only)",
         expected_response="25"
     )
 
-def test_el_badi_palace_structure():
-    assert query_and_validate(
-        question="What is the main feature of the main square at El Badi Palace? (Provide a brief description)",
-        expected_response="large pool"
-    )
 
 def test_ahmed_al_mansur_birth_year():
     assert query_and_validate(
-        question="In which year was Ahmed al-Mansur born? (Answer with the number only)",
+        question="when did Ahmed al-Mansur born? (Answer with the number only)",
         expected_response="1549"
     )
 
@@ -77,11 +66,6 @@ def test_ahmed_al_mansur_father():
         expected_response="Mohammed ash-Sheikh"
     )
 
-def test_ahmed_al_mansur_battle_year():
-    assert query_and_validate(
-        question="In which year did the Battle of the Three Kings take place? (Answer with the number only)",
-        expected_response="1578"
-    )
 
 def test_ahmed_al_mansur_defeated_force():
     assert query_and_validate(

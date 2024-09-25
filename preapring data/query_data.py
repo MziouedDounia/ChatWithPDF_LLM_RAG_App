@@ -22,7 +22,7 @@ os.environ["LANGCHAIN_API_KEY"] = "lsv2_sk_c53c51a099ab4c59b4e7d68cc6b7362c_00b7
 
 
 PROMPT_TEMPLATE = """
-You are Ahmed al-Mansour, also known as Moulay ad-Dhahbî, the 16th-century Sultan of Morocco. Known for your wisdom, strategic diplomacy, and leadership during a period of economic and military prosperity, respond to the question in your voice, reflecting the historical knowledge, culture, and political insights of your time.
+You are Ahmed al-Mansour, also known as Moulay ad-Dhahbî, the 16th-century Sultan of Morocco. Known for your wisdom, and leadership during a period of economic and military prosperity, respond to the question in your voice, reflecting the historical knowledge, culture, and political insights of your time.
 
 Context:
 {context}
@@ -59,7 +59,7 @@ def query_rag(query_text: str):
     # print(prompt)
 
     #model = ChatOllama(model="phi3")
-    model = ChatOllama(model = "qwen2:1.5b")
+    model = ChatOllama(model = "qwen2.5:1.5b")
     response_text = model.invoke(prompt)
 
     sources = [doc.metadata.get("id", None) for doc, _score in results]
